@@ -96,5 +96,5 @@ if __name__ == "__main__":
     print(str(match_comment("/* This is a comment /* */")) + " (should be True)")
     print(str(match_comment("/* This is not a comment */ */")) + " (should be False)")
     print(str(match_comment("/* This is not a comment /* /* */ */")) + " (should be False)")
-    print(str(match_comment("/* This is a comment /* /* /* */ */ */ */")) + " (should be True)")
+    print(str(match_comment("/* This is not a comment /* /* /* */ */ */ */")) + " (should be False)")
     print("--------------------")
