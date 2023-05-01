@@ -1,10 +1,11 @@
-TT_NUM = 'NUM'
-TT_FLOAT = 'FLOAT'
-TT_ADD = 'ADD'
-TT_MUL = 'MULT'
-TT_USUB = 'USUB'
-TT_LPAREN = 'LPAR'
-TT_RPAREN = 'RPAR'
+NUM = 'NUM'
+FLOAT = 'FLOAT'
+ADD = 'ADD'
+MUL = 'MULT'
+USUB = 'USUB'
+LPAREN = 'LPAR'
+RPAREN = 'RPAR'
+EOF = 'EOF'
 
 
 class Token:
@@ -13,11 +14,7 @@ class Token:
         self.value = value
 
     def __repr__(self):
-        if self.value:
-            return f"({self.type}, {self.value})"
+        if self.value is not None:
+            return f'Token({self.type},{self.value})'
         else:
-            return f"{self.type}"
-
-
-# if __name__ == "__main__":
-#     pass
+            return f'Token({self.type})'

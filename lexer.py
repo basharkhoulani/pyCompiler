@@ -5,20 +5,16 @@ import re
 
 class Lexer:
     def __init__(self, input: str):
-        self.input = input
         self.pos = 0
+        self.input = input
         self.current_char = self.input[self.pos]
 
     def move(self):
-        self.pos += 1
-        if self.pos >= len(self.input):
-            self.current_char = None
-        else:
+        if self.pos + 1 < len(self.input):
+            self.pos += 1
             self.current_char = self.input[self.pos]
-
-    def add_and_move(self, char):
-        self.move()
-        return char
+        else:
+            self.current_char = None
 
     def reset(self, pos):
         self.pos = pos
@@ -26,13 +22,6 @@ class Lexer:
             self.current_char = None
         else:
             self.current_char = self.input[self.pos]
-
-    def peek(self):
-        peek_pos = self.pos + 1
-        if peek_pos >= len(self.input):
-            return None
-        else:
-            return self.input[peek_pos]
 
     def read_float(self):
         float_regex_str = r"((\d|[1-9]\d*)\.(0|\d*[1-9]))"
@@ -42,7 +31,7 @@ class Lexer:
         self.reset(self.pos + matches.end(0))
         if self.current_char == '0':
             raise LexerError(self.current_char, "no leading zeros", self.pos)
-        return Token(TT_FLOAT, matches.group(0))
+        return Token(FLOAT, matches.group(0))
 
     def read_number(self):
         value = ''
@@ -54,7 +43,7 @@ class Lexer:
         if self.current_char == '.':
             self.reset(pos)
             return self.read_float()
-        return Token(TT_NUM, value)
+        return Token(NUM, value)
 
     def lex(self):
         result = []
@@ -62,19 +51,19 @@ class Lexer:
         while self.current_char is not None:
             match self.current_char:
                 case '+':
-                    result.append(Token(TT_ADD))
+                    result.append(Token(ADD))
                     self.move()
                 case '*':
-                    result.append(Token(TT_MUL))
+                    result.append(Token(MUL))
                     self.move()
                 case '-':
-                    result.append(Token(TT_USUB))
+                    result.append(Token(USUB))
                     self.move()
                 case '(':
-                    result.append(Token(TT_LPAREN))
+                    result.append(Token(LPAREN))
                     self.move()
                 case ')':
-                    result.append(Token(TT_RPAREN))
+                    result.append(Token(RPAREN))
                     self.move()
                 case n if n.isdigit():
                     result.append(self.read_number())
@@ -82,6 +71,9 @@ class Lexer:
                     self.move()
                 case _:
                     raise LexerError(self.current_char, "a valid token", self.pos)
+
+        result.append(Token(EOF))
+
         return result
 
 
