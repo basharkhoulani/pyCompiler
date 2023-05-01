@@ -15,10 +15,7 @@ def match_aaba(input: str):
 def match_identifier(input: str):
     # [a-zA-Z] = Buchstaben von a-z und A-Z
     # \w = [a-zA-Z0-9_] = Buchstaben von a-z und A-Z, Zahlen von 0-9 und _
-    if re.fullmatch(r"[a-zA-Z]\w*", input) is not None:
-        return True
-    else:
-        return False
+    return re.fullmatch(r"[a-zA-Z]\w*", input) is not None
 
 
 # Aufgabe 1b
@@ -27,10 +24,7 @@ def match_float_literal(input: str):
     # (\d|[1-9]\d*) = Zahlen von 0-9 oder Zahlen von 1-9 gefolgt von Zahlen von 0-9
     # \. = .
     # (0|\d*[1-9]) = 0 oder Zahlen von 0-9 gefolgt von Zahlen von 1-9
-    if re.fullmatch(r"((\d|[1-9]\d*)\.(0|\d*[1-9]))", input) is not None:
-        return True
-    else:
-        return False
+    return re.fullmatch(r"((\d|[1-9]\d*)\.(0|\d*[1-9]))", input) is not None
 
 
 # Aufgabe 1c
@@ -45,10 +39,11 @@ def match_comment(input: str):
     #       (beliebig viele * gefolgt von einem Zeichen außer */ oder einem Zeilenumbruch)) beliebig oft
     # \*+/ = beliebig viele * gefolgt von /
 
-    if re.fullmatch(r"/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/", input) is not None:
-        return True
-    else:
-        return False
+   return re.fullmatch(r"/\*([^*]|\*[^/])*\*/", input) is not None
+   #  if re.fullmatch(r"/\*([^*]|\s|(\*+([^*/]|\s)))*\*+/", input) is not None:
+   #      return True
+   #  else:
+   #      return False
 
 
 # Test
@@ -87,7 +82,7 @@ if __name__ == "__main__":
     print("--------------------")
     # Match comment
     print("---------- Match comment ----------")
-    print(str(match_comment("/* This is a comment */")) + " (should be True)")
+    print(str(match_comment("/* This is a\r\n\t comment */")) + " (should be True)")
     print(str(match_comment("// This is not a comment")) + " (should be False)")
     print(str(match_comment("/ This is not a comment")) + " (should be False)")
     print(str(match_comment("This is also not a comment")) + " (should be False)")
@@ -97,4 +92,6 @@ if __name__ == "__main__":
     print(str(match_comment("/* This is not a comment */ */")) + " (should be False)")
     print(str(match_comment("/* This is not a comment /* /* */ */")) + " (should be False)")
     print(str(match_comment("/* This is not a comment /* /* /* */ */ */ */")) + " (should be False)")
+    print(str(match_comment("/*** This is not a comment /***/**")) + " (should be False)")
+    print(str(match_comment("/*** This is not a comment /***/")) + " (should be True)")
     print("--------------------")

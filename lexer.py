@@ -1,5 +1,6 @@
-from git.error import LexerError
+from error import LexerError
 from tokens import *
+import re
 
 
 class Lexer:
@@ -19,6 +20,13 @@ class Lexer:
         self.move()
         return char
 
+    def reset(self, pos):
+        self.pos = pos
+        if self.pos >= len(self.input):
+            self.current_char = None
+        else:
+            self.current_char = self.input[self.pos]
+
     def peek(self):
         peek_pos = self.pos + 1
         if peek_pos >= len(self.input):
@@ -26,39 +34,27 @@ class Lexer:
         else:
             return self.input[peek_pos]
 
-    def read_number(self):
-        num_text = ""
+    def read_float(self):
+        float_regex_str = r"((\d|[1-9]\d*)\.(0|\d*[1-9]))"
+        matches = re.match(float_regex_str, self.input[self.pos:])
+        if matches is None or matches.start(0) != 0:
+            raise LexerError(self.current_char, "float", self.pos)
+        self.reset(self.pos + matches.end(0))
         if self.current_char == '0':
-            num_text += self.add_and_move(self.current_char)
-            if self.current_char == '.':
-                num_text += self.add_and_move(self.current_char)
-                return self.read_float(num_text)
-            elif self.current_char.isdigit():
-                raise LexerError("Leading zero", self.pos)
-            else:
-                return Token(TT_NUM, num_text)
-        while self.current_char is not None and (self.current_char.isdigit() or self.current_char == '.'):
-            if self.current_char == '.':
-                num_text += self.add_and_move(self.current_char)
-                return self.read_float(num_text)
-            num_text += self.add_and_move(self.current_char)
-        return Token(TT_NUM, num_text)
+           raise LexerError(self.current_char, "no leading zeros", self.pos)
+        return Token(TT_FLOAT, matches.group(0))
 
-    def read_float(self, num_text):
-        trailing_zero = False
+    def read_number(self):
+        value = ''
+        pos = self.pos
         while self.current_char is not None and self.current_char.isdigit():
-            if self.current_char == '0' and trailing_zero:
-                raise LexerError("Trailing zero", self.pos)
-            elif self.current_char != '0':
-                trailing_zero = False
-            elif self.current_char == '0':
-                trailing_zero = True
-                if self.peek() is None:
-                    raise LexerError("Trailing zero", self.pos)
-            elif self.current_char == '.':
-                raise LexerError("Multiple decimal points", self.pos)
-            num_text += self.add_and_move(self.current_char)
-        return Token(TT_FLOAT, num_text)
+           value += self.current_char
+           self.move()
+        # if encountered a dot, read float instead
+        if self.current_char == '.':
+           self.reset(pos)
+           return self.read_float()
+        return Token(TT_NUM,value)
 
     def lex(self):
         result = []
@@ -85,11 +81,11 @@ class Lexer:
                 case n if n.isspace():
                     self.move()
                 case _:
-                    raise LexerError("Unknown character", self.pos)
+                    raise LexerError(self.current_char, "a valid token", self.pos)
         return result
 
 
 if __name__ == '__main__':
-    lexer = Lexer("(-23 +16 )*- 4.23")
+    lexer = Lexer("(-23 +16 )*- 04.23")
     print(lexer.lex())
-    pass
+    
