@@ -13,37 +13,19 @@ def match_aaba(input: str):
 # Aufgabe 1a
 
 def match_identifier(input: str):
-    # [a-zA-Z] = Buchstaben von a-z und A-Z
-    # \w = [a-zA-Z0-9_] = Buchstaben von a-z und A-Z, Zahlen von 0-9 und _
     return re.fullmatch(r"[a-zA-Z]\w*", input) is not None
 
 
 # Aufgabe 1b
 
 def match_float_literal(input: str):
-    # (\d|[1-9]\d*) = Zahlen von 0-9 oder Zahlen von 1-9 gefolgt von Zahlen von 0-9
-    # \. = .
-    # (0|\d*[1-9]) = 0 oder Zahlen von 0-9 gefolgt von Zahlen von 1-9
     return re.fullmatch(r"((\d|[1-9]\d*)\.(0|\d*[1-9]))", input) is not None
 
 
 # Aufgabe 1c
 
 def match_comment(input: str):
-    # /\* = /*
-    # [^*] = alles außer *
-    # [\r\n] = Zeilenumbruch
-    # (\*+([^*/]|[\r\n])) = beliebig viele * gefolgt von einem Zeichen außer */ oder einem Zeilenumbruch
-    # ([^*]|[\r\n]|(\*+([^*/]|[\r\n]))) = A
-    # A* = ((alles außer *) oder (Zeilenumbruch) oder
-    #       (beliebig viele * gefolgt von einem Zeichen außer */ oder einem Zeilenumbruch)) beliebig oft
-    # \*+/ = beliebig viele * gefolgt von /
-
-   return re.fullmatch(r"/\*([^*]|\*[^/])*\*/", input) is not None
-   #  if re.fullmatch(r"/\*([^*]|\s|(\*+([^*/]|\s)))*\*+/", input) is not None:
-   #      return True
-   #  else:
-   #      return False
+    return re.fullmatch(r"/\*([^*]|\*[^/])*\*/", input) is not None
 
 
 # Test

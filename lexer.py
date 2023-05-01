@@ -41,20 +41,20 @@ class Lexer:
             raise LexerError(self.current_char, "float", self.pos)
         self.reset(self.pos + matches.end(0))
         if self.current_char == '0':
-           raise LexerError(self.current_char, "no leading zeros", self.pos)
+            raise LexerError(self.current_char, "no leading zeros", self.pos)
         return Token(TT_FLOAT, matches.group(0))
 
     def read_number(self):
         value = ''
         pos = self.pos
         while self.current_char is not None and self.current_char.isdigit():
-           value += self.current_char
-           self.move()
+            value += self.current_char
+            self.move()
         # if encountered a dot, read float instead
         if self.current_char == '.':
-           self.reset(pos)
-           return self.read_float()
-        return Token(TT_NUM,value)
+            self.reset(pos)
+            return self.read_float()
+        return Token(TT_NUM, value)
 
     def lex(self):
         result = []
@@ -86,6 +86,5 @@ class Lexer:
 
 
 if __name__ == '__main__':
-    lexer = Lexer("(-23 +16 )*- 04.23")
+    lexer = Lexer("(-23 +16 )*- 4.23")
     print(lexer.lex())
-    
