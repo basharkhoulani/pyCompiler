@@ -104,3 +104,11 @@ dmypy.json
 .pyre/
 .pytype/
 cython_debug/
+/.idea/.gitignore
+/.idea/codeStyles/codeStyleConfig.xml
+/.idea/compilerbau-gruppe-4.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/vcs.xml
