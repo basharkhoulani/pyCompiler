@@ -10,6 +10,9 @@ class Parsers:
         self.__current_token__ = self.input[self.__current_pos__]
         self.ruleStack = ["Error"]
 
+        #layout : (startPos, rule, sucess, EndPos, AST)
+        self.memoryDict = (0, "error", 0, ast.Expr())
+
     # Hilfsfunktionen
     def __read_tok__(self):
         self.__current_pos__ += 1
@@ -129,14 +132,24 @@ class Parsers:
     # Grammatikregeln
     def expr(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
         self.ruleStack.append("expr")
+        pos = self.__current_pos__
 
+        #do we already know the result?
+        if self.memoryDict[0] == self.__current_pos__ and self.memoryDict[1] == "expr":
+            self.__reset_pos__(self.memoryDict[2])
+            return True, self.memoryDict[3]
+
+        #expr -> term + expr
         endB, expr = self.binaryOperator(self.term, ADD, self.expr, ast.Add)
         if endB:
+            self.memoryDict = (pos, "expr", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
+        #expr -> term
         endB, expr = self.changeTerminal(self.term)
         if endB:
+            self.memoryDict = (pos, "expr", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
@@ -144,14 +157,24 @@ class Parsers:
     
     def term(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
         self.ruleStack.append("term")
+        pos = self.__current_pos__
 
+        #do we already know the result?
+        if self.memoryDict[0] == self.__current_pos__ and self.memoryDict[1] == "term":
+            self.__reset_pos__(self.memoryDict[2])
+            return True, self.memoryDict[3]
+
+        #term -> potential * term
         endB, expr = self.binaryOperator(self.potential, MUL, self.term, ast.Mult)
         if endB:
+            self.memoryDict = (pos, "term", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
+        #term -> potential
         endB, expr = self.changeTerminal(self.potential)
         if endB:
+            self.memoryDict = (pos, "term", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
@@ -159,14 +182,24 @@ class Parsers:
 
     def potential(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
         self.ruleStack.append("potential")
+        pos = self.__current_pos__
 
+        #do we already know the result?
+        if self.memoryDict[0] == self.__current_pos__ and self.memoryDict[1] == "potential":
+            self.__reset_pos__(self.memoryDict[2])
+            return True, self.memoryDict[3]
+
+        #potential -> factor**potential
         endB, expr = self.binaryOperator3(self.factor, MUL, MUL, self.potential, ast.Potenz)
         if endB:
+            self.memoryDict = (pos, "potential", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
+        #potential -> factor
         endB, expr = self.changeTerminal(self.factor)
         if endB:
+            self.memoryDict = (pos, "potential", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
@@ -174,14 +207,25 @@ class Parsers:
     
     def factor(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
         self.ruleStack.append("factor")
+        pos = self.__current_pos__
 
+        #do we already know the result?
+        if self.memoryDict[0] == self.__current_pos__ and self.memoryDict[1] == "factor":
+            self.__reset_pos__(self.memoryDict[2])
+            print("used previus result")
+            return True, self.memoryDict[3]
+
+        #factor -> -subt
         endB, expr = self.unaryOperator(USUB, self.subt, ast.Usub)
         if endB:
+            self.memoryDict = (pos, "factor", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
+        #factor -> subt
         endB, expr = self.changeTerminal(self.subt)
         if endB:
+            self.memoryDict = (pos, "factor", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
@@ -190,24 +234,32 @@ class Parsers:
     def subt(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
         self.ruleStack.append("subt")
 
-        #NUM
+        #do we already know the result?
+        if self.memoryDict[0] == self.__current_pos__ and self.memoryDict[1] == "subt":
+            self.__reset_pos__(self.memoryDict[2])
+            return True, self.memoryDict[3]
+
+        #subt -> NUM
         pos = self.__current_pos__
         w = self.__current_token__.value
         if self.__expect__(NUM):
             self.ruleStack.pop()
+            self.memoryDict = (pos, "subt", self.__current_pos__, ast.Num(w))
             return True, ast.Num(w)
         self.__reset_pos__(pos)
 
-        #FLOAT
+        #subt -> FLOAT
         w = self.__current_token__.value
         if self.__expect__(FLOAT):
             self.ruleStack.pop()
+            self.memoryDict = (pos, "subt", self.__current_pos__, ast.Float(w))
             return True, ast.Float(w)
         self.__reset_pos__(pos)
 
-        #(expr)
+        #subt -> (expr)
         endB, expr = self.klammerExpr(LPAREN, self.expr, RPAREN, self.passAST)
         if endB:
+            self.memoryDict = (pos, "subt", self.__current_pos__, expr)
             self.ruleStack.pop()
             return True, expr
 
@@ -228,6 +280,6 @@ class Parsers:
 
 
 if __name__ == '__main__':
-    token_list = lexer.Lexer('3+-3+3*+*3**3').lex()
+    token_list = lexer.Lexer('3+-3+3**3**3').lex()
     print(token_list)
     print(Parsers(token_list).parse())
