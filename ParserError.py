@@ -6,4 +6,4 @@ class ParserError(Exception):
         self.lastRule = lastRule
 
     def __str__(self):
-        return f"ParserError: found {self.found} at position {self.position}, last Rule used {self.lastRule}"
+        return f"ParserError: can't match {self.found} at token position {self.position}, last Rule used {self.lastRule}"

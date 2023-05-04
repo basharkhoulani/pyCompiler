@@ -8,7 +8,7 @@ class Parsers:
         self.input = input
         self.__current_pos__ = 0
         self.__current_token__ = self.input[self.__current_pos__]
-        self.ruleStack = []
+        self.ruleStack = ["Error"]
 
     # Hilfsfunktionen
     def __read_tok__(self):
