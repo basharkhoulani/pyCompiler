@@ -273,7 +273,6 @@ class Parsers:
         if b and self.input[self.__current_pos__].type == EOF:
             return expr
         else:
-            #print(self.__current_pos__ + 1, self.__current_token__, self.ruleStack)
             raise ParserError(self.__current_token__, self.__current_pos__ + 1, self.ruleStack[-1])
          
         
