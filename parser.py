@@ -28,8 +28,38 @@ class Parser:
    # Grammatikregeln
 
    def expr(self):
+      return self.pow()
+
+   def pow(self):
       pos = self.__current_pos__
-      if self.term() and self.__expect__(ADD) and self.expr():
+
+      if self.mul() and self.__expect__(MUL) and self.__expect__(MUL) and self.expr():
+         return True
+      self.__reset_pos__(pos)
+
+      if self.mul():
+         return True
+      self.__reset_pos__(pos)
+
+      return False
+
+
+   def mul(self):
+      pos = self.__current_pos__
+
+      if self.add() and self.__expect__(MUL) and self.expr():
+         return True
+      self.__reset_pos__(pos)
+
+      if self.add():
+         return True
+      self.__reset_pos__(pos)
+
+      return False
+
+   def add(self):
+      pos = self.__current_pos__
+      if self.term() and self.__expect__(ADD) and self.add():
          return True
       self.__reset_pos__(pos)
 
@@ -39,33 +69,35 @@ class Parser:
 
       return False
 
-   def term(self):
-      pos = self.__current_pos__
-      if self.__expect__(USUB) and self.factor():
-         return True
-      self.__reset_pos__(pos)
+def term(self):
+   pos = self.__current_pos__
+   if self.__expect__(USUB) and self.factor():
+      return True
+   self.__reset_pos__(pos)
 
-      if self.factor():
-         return True
-      self.__reset_pos__(pos)
+   if self.factor():
+      return True
+   self.__reset_pos__(pos)
 
+   return False
+
+
+def factor(self):
+   pos = self.__current_pos__
+   if self.__expect__(NUM):
+      return True
+   self.__reset_pos__(pos)
+
+   return False
+
+
+# Parser starten
+
+def parse(self):
+   if self.expr() and self.input[self.__current_pos__].type == EOF:
+      return True
+   else:
       return False
-
-   def factor(self):
-      pos = self.__current_pos__
-      if self.__expect__(NUM):
-         return True
-      self.__reset_pos__(pos)
-
-      return False
-
-   # Parser starten
-
-   def parse(self):
-      if self.expr() and self.input[self.__current_pos__].type == EOF:
-         return True
-      else:
-         return False
 
 
 if __name__ == '__main__':
