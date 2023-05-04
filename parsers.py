@@ -1,5 +1,6 @@
 from tokens import *
 import lexer
+from ParserError import ParserError
 import ExprTree as ast
 
 class Parsers:
@@ -7,6 +8,7 @@ class Parsers:
         self.input = input
         self.__current_pos__ = 0
         self.__current_token__ = self.input[self.__current_pos__]
+        self.ruleStack = []
 
     # Hilfsfunktionen
     def __read_tok__(self):
@@ -126,69 +128,87 @@ class Parsers:
 
     # Grammatikregeln
     def expr(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
+        self.ruleStack.append("expr")
 
         endB, expr = self.binaryOperator(self.term, ADD, self.expr, ast.Add)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         endB, expr = self.changeTerminal(self.term)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         return False, None
     
     def term(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
+        self.ruleStack.append("term")
 
         endB, expr = self.binaryOperator(self.potential, MUL, self.term, ast.Mult)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         endB, expr = self.changeTerminal(self.potential)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         return False, None
 
     def potential(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
+        self.ruleStack.append("potential")
 
         endB, expr = self.binaryOperator3(self.factor, MUL, MUL, self.potential, ast.Potenz)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         endB, expr = self.changeTerminal(self.factor)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         return False, None
     
     def factor(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
+        self.ruleStack.append("factor")
+
         endB, expr = self.unaryOperator(USUB, self.subt, ast.Usub)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         endB, expr = self.changeTerminal(self.subt)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         return False, None
 
     def subt(self) -> (tuple[False, None] | tuple[True, ast.Expr]):
+        self.ruleStack.append("subt")
+
         #NUM
         pos = self.__current_pos__
         w = self.__current_token__.value
         if self.__expect__(NUM):
+            self.ruleStack.pop()
             return True, ast.Num(w)
         self.__reset_pos__(pos)
 
         #FLOAT
         w = self.__current_token__.value
         if self.__expect__(FLOAT):
+            self.ruleStack.pop()
             return True, ast.Float(w)
         self.__reset_pos__(pos)
 
         #(expr)
         endB, expr = self.klammerExpr(LPAREN, self.expr, RPAREN, self.passAST)
         if endB:
+            self.ruleStack.pop()
             return True, expr
 
         return False, None
@@ -201,13 +221,13 @@ class Parsers:
         if b and self.input[self.__current_pos__].type == EOF:
             return expr
         else:
-            #exception here @todo
-            return False
+            #print(self.__current_pos__ + 1, self.__current_token__, self.ruleStack)
+            raise ParserError(self.__current_token__, self.__current_pos__ + 1, self.ruleStack[-1])
          
         
 
 
 if __name__ == '__main__':
-    token_list = lexer.Lexer('3+-3+3*3**3').lex()
+    token_list = lexer.Lexer('3+-3+3*+*3**3').lex()
     print(token_list)
     print(Parsers(token_list).parse())
