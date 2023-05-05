@@ -7,7 +7,10 @@ class Lexer:
     def __init__(self, input: str):
         self.pos = 0
         self.input = input
-        self.current_char = self.input[self.pos]
+        if len(input) > 0:
+            self.current_char = input[self.pos]
+        else:
+            self.current_char = None
 
     def move(self):
         if self.pos + 1 < len(self.input):
@@ -45,8 +48,20 @@ class Lexer:
             return self.read_float()
         return Token(NUM, value)
 
+    def read_mult_or_exp(self):
+        self.move()
+        if self.current_char == '*':
+            self.move()
+            return Token(EXP)
+        else:
+            return Token(MUL)
+
     def lex(self):
         result = []
+
+        if self.current_char is None:
+            result.append(Token(EOF))
+            return result
 
         while self.current_char is not None:
             match self.current_char:
@@ -54,8 +69,7 @@ class Lexer:
                     result.append(Token(ADD))
                     self.move()
                 case '*':
-                    result.append(Token(MUL))
-                    self.move()
+                    result.append(self.read_mult_or_exp())
                 case '-':
                     result.append(Token(USUB))
                     self.move()
@@ -78,5 +92,5 @@ class Lexer:
 
 
 if __name__ == '__main__':
-    lexer = Lexer("(-23 +16 )*- 4.23")
+    lexer = Lexer("")
     print(lexer.lex())
