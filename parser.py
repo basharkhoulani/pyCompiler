@@ -14,6 +14,9 @@ class Parser:
     __furthest_token__: Token
     __furthest_rule__: str
     __furthest_expected__: str
+    __memo__: dict[tuple[int, str], tuple[Optional[Node], int]] = {}
+    saved_entries: int = 0
+    accessed_entries: int = 0
 
     # Hilfsfunktionen
 
@@ -31,6 +34,20 @@ class Parser:
             return True
         else:
             return False
+
+    def __memo_it__(self, pos: int, method: str, val: Optional[Node]) -> any:
+        self.saved_entries += 1
+        self.__memo__[(pos, method)] = (val, self.__current_pos__)
+        return val
+
+    def __memo_contains__(self, method: str) -> bool:
+        return (self.__current_pos__, method) in self.__memo__
+
+    def __memo_get__(self, method: str) -> Optional[Node]:
+        self.accessed_entries += 1
+        tp = self.__memo__[(self.__current_pos__, method)]
+        self.__reset_pos__(tp[1])
+        return tp[0]
 
     def __failed__(self, expected: str, rule: str) -> None:
         if self.__current_token__.to_pos >= self.__furthest_pos_end__:
@@ -59,14 +76,19 @@ class Parser:
     # Grammatikregeln
 
     def expr(self) -> Optional[Node]:
-        return self.pow()
+        if self.__memo_contains__("expr"):
+            return self.__memo_get__("expr")
+        return self.__memo_it__(self.__current_pos__, "expr", self.pow())
 
     def pow(self) -> Optional[Node]:
+        if self.__memo_contains__("pow"):
+            return self.__memo_get__("pow")
+
         pos = self.__current_pos__
 
         if (lhs := self.mul()) and (b1 := self.__expect__(MUL)) \
                 and (b2 := self.__expect__(MUL)) and (rhs := self.expr()):
-            return Node(AST_POW, children=[lhs, rhs])
+            return self.__memo_it__(pos, "pow", Node(AST_POW, children=[lhs, rhs]))
         elif lhs and not b1:
             self.__failed__("*", "pow")
         elif lhs and b1 and not b2:
@@ -77,89 +99,101 @@ class Parser:
         self.__reset_pos__(pos)
 
         if mul := self.mul():
-            return mul
+            return self.__memo_it__(pos, "pow", mul)
         else:
             self.__failed__("mul", "pow")
         self.__reset_pos__(pos)
 
-        return None
+        return self.__memo_it__(pos, "pow", None)
 
     def mul(self) -> Optional[Node]:
+        if self.__memo_contains__("mul"):
+            return self.__memo_get__("mul")
+
         pos = self.__current_pos__
 
         if (lhs := self.add()) and self.__expect__(MUL) and (rhs := self.expr()):
-            return Node(AST_MUL, children=[lhs, rhs])
+            return self.__memo_it__(pos, "mul", Node(AST_MUL, children=[lhs, rhs]))
         else:
             self.__failed__("expr", "mul")
         self.__reset_pos__(pos)
 
         if add := self.add():
-            return add
+            return self.__memo_it__(pos, "mul", add)
         else:
             self.__failed__("add", "mul")
         self.__reset_pos__(pos)
 
-        return None
+        return self.__memo_it__(pos, "mul", None)
 
     def add(self) -> Optional[Node]:
+        if self.__memo_contains__("add"):
+            return self.__memo_get__("add")
+
         pos = self.__current_pos__
         if (lhs := self.term()) and self.__expect__(ADD) and (rhs := self.expr()):
-            return Node(AST_ADD, children=[lhs, rhs])
+            return self.__memo_it__(pos, "add", Node(AST_ADD, children=[lhs, rhs]))
         else:
             self.__failed__("expr", "add")
         self.__reset_pos__(pos)
 
         if term := self.term():
-            return term
+            return self.__memo_it__(pos, "add", term)
         else:
             self.__failed__("term", "add")
         self.__reset_pos__(pos)
 
-        return None
+        return self.__memo_it__(pos, "add", None)
 
     def term(self) -> Optional[Node]:
+        if self.__memo_contains__("term"):
+            return self.__memo_get__("term")
+
         pos = self.__current_pos__
         if self.__expect__(USUB) and (rhs := self.factor()):
-            return Node(AST_USUB, children=[rhs])
+            return self.__memo_it__(pos, "term", Node(AST_USUB, children=[rhs]))
         else:
             self.__failed__("factor", "term")
         self.__reset_pos__(pos)
 
         if factor := self.factor():
-            return factor
+            return self.__memo_it__(pos, "term", factor)
         else:
             self.__failed__("factor", "term")
         self.__reset_pos__(pos)
 
-        return None
+        return self.__memo_it__(pos, "term", None)
 
     def factor(self) -> Optional[Node]:
+        if self.__memo_contains__("factor"):
+            return self.__memo_get__("factor")
+
         pos = self.__current_pos__
         if self.__expect__(NUM):
-            return Node(AST_NUM, value=self.__input__[self.__current_pos__ - 1].value)
+            return self.__memo_it__(pos, "factor", Node(AST_NUM, value=self.__input__[self.__current_pos__ - 1].value))
         else:
             self.__failed__("number", "factor")
         self.__reset_pos__(pos)
 
         if self.__expect__(FLOAT):
-            return Node(AST_FLOAT, value=self.__input__[self.__current_pos__ - 1].value)
+            return self.__memo_it__(pos, "factor", Node(AST_FLOAT, value=self.__input__[self.__current_pos__ - 1].value))
         else:
             self.__failed__("float", "factor")
         self.__reset_pos__(pos)
 
         if self.__expect__(LPAREN) and (exp := self.expr()) and self.__expect__(RPAREN):
-            return exp
+            return self.__memo_it__(pos, "factor", exp)
         else:
             self.__failed__("expr", "factor")
         self.__reset_pos__(pos)
 
-        return None
+        return self.__memo_it__(pos, "factor", None)
 
 
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(1 + 2 ) *** 3"
+    text = "(1 + 2) * 3 ** 4"
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)
@@ -168,3 +202,5 @@ if __name__ == '__main__':
     print(text)
     print(ast)
     print("evaluates to: ", ast.eval())
+    print("saved: ", parser.saved_entries)
+    print("accessed: ", parser.accessed_entries)
