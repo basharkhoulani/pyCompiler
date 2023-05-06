@@ -151,7 +151,7 @@ class Parser:
             return self.__memo_get__()
 
         pos = self.__current_pos__
-        if self.__expect__(USUB) and (rhs := self.expr()):
+        if self.__expect__(USUB) and (rhs := self.term()):
             return self.__memo_it__(pos, Node(AST_USUB, children=[rhs]))
         else:
             self.__failed__("factor")
@@ -196,7 +196,7 @@ class Parser:
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(1 + 2) * 3 ** (---4 + 5)"
+    text = "(1 + 2 * 3) ** (---4 + 5)"
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)
