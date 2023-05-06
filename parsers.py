@@ -41,6 +41,7 @@ class Parser:
                 if expr:
                     return ast.BinOp(term, ast.Add(), expr)
         self.__reset_pos__(pos)
+        term = self.term()
         if term:
             return term
         return None
