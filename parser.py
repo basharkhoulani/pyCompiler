@@ -194,7 +194,7 @@ class Parser:
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(1 + 2) * 3 ** (4 + 5)"
+    text = "(1 + 2) * 3 ** (-4 + 5)"
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)
