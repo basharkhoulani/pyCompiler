@@ -110,11 +110,13 @@ class Parser:
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(-23 + 16 )*- 4.23 ** -(2**2)"
+    text = "(1 + 2) * 3 ** 4"
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)
-    is_correct = parser.parse(token_list)
+    ast = parser.parse(token_list)
     print(token_list)
     print(text)
-    print(is_correct)
+    print(ast)
+    print("evaluates to: ", ast.eval())
+

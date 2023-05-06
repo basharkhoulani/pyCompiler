@@ -24,6 +24,21 @@ class Node:
         self.value = value
         self.children = children if children is not None else []
 
+    def run(self):
+        match self.type:
+            case n if n == AST_POW:
+                return self.children[0].run() ** self.children[1].run()
+            case n if n == AST_MUL:
+                return self.children[0].run() * self.children[1].run()
+            case n if n == AST_ADD:
+                return self.children[0].run() + self.children[1].run()
+            case n if n == AST_USUB:
+                return -self.children[0].run()
+            case n if n == AST_NUM:
+                return int(self.value)
+            case n if n == AST_FLOAT:
+                return float(self.value)
+
     def __str__(self):
         return f'Node ({self.type}{":" + self.value if self.value is not None else ""})' + \
             ("\n" if len(self.children) > 0 else "") + \
@@ -38,6 +53,9 @@ class Ast:
 
     def __init__(self, root: Node):
         self.root = root
+
+    def eval(self):
+        return self.root.run()
 
     def __str__(self):
         return str(self.root)
