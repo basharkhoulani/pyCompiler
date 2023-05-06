@@ -16,7 +16,10 @@ class Parsers:
     # Hilfsfunktionen
     def __read_tok__(self):
         self.__current_pos__ += 1
-        self.__current_token__ = self.input[self.__current_pos__]
+        if self.__current_pos__ < len(self.input):
+            self.__current_token__ = self.input[self.__current_pos__]
+        else:
+            self.__current_token__ = None
 
     def __reset_pos__(self,pos: int) -> None:
         self.__current_pos__ = pos
@@ -299,10 +302,8 @@ class Parsers:
         else:
             raise ParserError(self.__current_token__, self.__current_pos__ + 1, self.ruleStack[-1])
          
-        
-
-
+         
 if __name__ == '__main__':
-    token_list = lexer.Lexer('3+-3+3**+3**3').lex()
+    token_list = lexer.Lexer('3+-3+3**3**3').lex()
     print(token_list)
     print(Parsers(token_list).parse())
