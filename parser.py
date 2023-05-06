@@ -80,11 +80,20 @@ class Parser:
 
     # Grammatikregeln
 
+    # E -> A
+    # A -> M + A | M
+    # M -> P * M | P
+    # P -> T ** P | T
+    # T -> -F | F
+    # F -> (E) | NUM | FLOAT
+
+    # E -> A
     def expr(self) -> Optional[Node]:
         if self.__memo_contains__():
             return self.__memo_get__()
         return self.__memo_it__(self.__current_pos__, self.add())
 
+    # A -> M + A | M
     def add(self) -> Optional[Node]:
         if self.__memo_contains__():
             return self.__memo_get__()
@@ -104,6 +113,7 @@ class Parser:
 
         return self.__memo_it__(pos, None)
 
+    # M -> P * M | P
     def mul(self) -> Optional[Node]:
         if self.__memo_contains__():
             return self.__memo_get__()
@@ -124,6 +134,7 @@ class Parser:
 
         return self.__memo_it__(pos, None)
 
+    # P -> T ** P | T
     def pow(self) -> Optional[Node]:
         if self.__memo_contains__():
             return self.__memo_get__()
@@ -146,6 +157,7 @@ class Parser:
 
         return self.__memo_it__(pos, None)
 
+    # T -> -F | F
     def term(self) -> Optional[Node]:
         if self.__memo_contains__():
             return self.__memo_get__()
@@ -165,6 +177,7 @@ class Parser:
 
         return self.__memo_it__(pos, None)
 
+    # F -> (E) | NUM | FLOAT
     def factor(self) -> Optional[Node]:
         if self.__memo_contains__():
             return self.__memo_get__()
