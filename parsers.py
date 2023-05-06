@@ -107,7 +107,7 @@ class Parser:
 
 
 if __name__ == "__main__":
-    inputexpr = lexer.Lexer("(-23 + 16 )*- 4.23 ** -(2**2)").lex()
+    inputexpr = lexer.Lexer("(-23 + 16 )*- 4.23 ** -(-2**-2)").lex()
     parser = Parser(inputexpr)
     tree = parser.parse()
-    print(tree)
+    print(ast.dump(tree, indent=4))
