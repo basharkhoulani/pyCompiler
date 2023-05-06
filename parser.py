@@ -59,6 +59,9 @@ class Parser:
             self.__furthest_expected__ = expected
 
     def parse(self, input: str, tokens: list[Token]) -> Optional[Ast]:
+        if len(tokens) == 1 and tokens[0].type == EOF:
+            raise ParserError(input, Token(EOF), "expr", 0, 0, "parse")
+
         self.__input__ = tokens
         self.__current_pos__ = 0
         self.__current_token__ = self.__input__[self.__current_pos__]
@@ -196,7 +199,7 @@ class Parser:
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(1 + 2 * 3) ** (---4 + 5)"
+    text = ""
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)

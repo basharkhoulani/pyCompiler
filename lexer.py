@@ -46,6 +46,9 @@ class Lexer:
         return Token(NUM, value, pos, self.pos)
 
     def lex(self, input_str: str) -> list[Token]:
+        if len(input_str) == 0:
+            return [Token(EOF)]
+
         self.pos = 0
         self.input = input_str
         self.current_char = self.input[self.pos]
