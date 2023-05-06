@@ -194,14 +194,15 @@ class Parser:
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(1 + 2) * 3 ** 4"
+    text = "(1 + 2) * 3 ** (4 + 5)"
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)
     ast = parser.parse(text, token_list)
-    print(token_list)
-    print(text)
-    print(ast)
-    print("evaluates to: ", ast.eval())
-    print("saved: ", parser.saved_entries)
-    print("accessed: ", parser.accessed_entries)
+
+    print(f"{text=}")
+    print(f"{token_list=}")
+    print(f"{ast=}")
+    print(f"{ast.eval()=}")
+    print(f"{parser.saved_entries=}")
+    print(f"{parser.accessed_entries=}")
