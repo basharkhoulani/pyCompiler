@@ -9,12 +9,10 @@ class LexerError(Exception):
 
 
 class ParserError(Exception):
-    def __init__(self, failed_token, position, expected, rule):
+    def __init__(self, failed_token, position, rule):
         self.failed_token = failed_token
         self.position = position
-        self.expected = expected
         self.rule = rule
 
     def __str__(self):
-        return f"ParserError: Expected {self.expected}, found {self.failed_token} at position {self.position} " \
-               f"in rule {self.rule}"
+        return f"ParserError: Found {self.failed_token} at position {self.position} in rule {self.rule}"

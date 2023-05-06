@@ -25,9 +25,9 @@ class Parser:
         else:
             return False
 
-    def __fail__(self, expected: str, pos: int, rule: str) -> None:
+    def __fail__(self, pos: int, rule: str) -> None:
         failed_token = self.input[pos]
-        raise ParserError(failed_token.type, pos, expected, rule)
+        raise ParserError(failed_token.type, pos, rule)
 
     # Grammatik Regeln
     # expr -> term ADD expr | term
@@ -85,7 +85,7 @@ class Parser:
         subt = self.subt()
         if subt:
             return subt
-        self.__fail__("NUM or FLOAT", pos, "factor")
+        self.__fail__(pos, "factor")
 
     def subt(self):
         pos = self.__current_pos__
@@ -97,13 +97,13 @@ class Parser:
         self.__reset_pos__(pos)
         if self.__expect__(NUM) or self.__expect__(FLOAT):
             return ast.Constant(self.input[self.__current_pos__ - 1].value)
-        self.__fail__("NUM or FLOAT", pos, "subt")
+        self.__fail__(pos, "subt")
 
     def parse(self):
         expression = self.expr()
         if expression and self.input[self.__current_pos__].type == EOF:
             return expression
-        raise ParserError(self.input[self.__current_pos__].type, self.__current_pos__, "EOF", "parse")
+        raise ParserError(self.__current_pos__, "EOF", "parse")
 
 
 if __name__ == "__main__":
