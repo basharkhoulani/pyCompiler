@@ -1,5 +1,7 @@
 from tokens import *
-import lexer
+from ast import *
+from lexer import *
+from typing import Optional
 
 
 class Parser:
@@ -24,89 +26,95 @@ class Parser:
         else:
             return False
 
-    def parse(self, tokens: list[Token]) -> bool:
+    def parse(self, tokens: list[Token]) -> Optional[Ast]:
         self.__input__ = tokens
         self.__current_pos__ = 0
         self.__current_token__ = self.__input__[self.__current_pos__]
-        if self.expr() and self.__input__[self.__current_pos__].type == EOF:
-            return True
+        if (exp := self.expr()) and self.__input__[self.__current_pos__].type == EOF:
+            return Ast(exp)
         else:
-            return False
+            return None
 
     # Grammatikregeln
 
-    def expr(self):
+    def expr(self) -> Optional[Node]:
         return self.pow()
 
-    def pow(self):
+    def pow(self) -> Optional[Node]:
         pos = self.__current_pos__
 
-        if self.mul() and self.__expect__(MUL) and self.__expect__(MUL) and self.expr():
-            return True
+        if (lhs := self.mul()) and self.__expect__(MUL) and self.__expect__(MUL) and (rhs := self.expr()):
+            return Node(AST_POW, children=[lhs, rhs])
         self.__reset_pos__(pos)
 
-        if self.mul():
-            return True
+        if mul := self.mul():
+            return mul
         self.__reset_pos__(pos)
 
-        return False
+        return None
 
-    def mul(self):
+    def mul(self) -> Optional[Node]:
         pos = self.__current_pos__
 
-        if self.add() and self.__expect__(MUL) and self.expr():
-            return True
+        if (lhs := self.add()) and self.__expect__(MUL) and (rhs := self.expr()):
+            return Node(AST_MUL, children=[lhs, rhs])
         self.__reset_pos__(pos)
 
-        if self.add():
-            return True
+        if add := self.add():
+            return add
         self.__reset_pos__(pos)
 
-        return False
+        return None
 
-    def add(self):
+    def add(self) -> Optional[Node]:
         pos = self.__current_pos__
-        if self.term() and self.__expect__(ADD) and self.add():
-            return True
+        if (lhs := self.term()) and self.__expect__(ADD) and (rhs := self.expr()):
+            return Node(AST_ADD, children=[lhs, rhs])
         self.__reset_pos__(pos)
 
-        if self.term():
-            return True
+        if term := self.term():
+            return term
         self.__reset_pos__(pos)
 
-        return False
+        return None
 
-    def term(self):
+    def term(self) -> Optional[Node]:
         pos = self.__current_pos__
-        if self.__expect__(USUB) and self.factor():
-            return True
+        if self.__expect__(USUB) and (rhs := self.factor()):
+            return Node(AST_USUB, children=[rhs])
         self.__reset_pos__(pos)
 
-        if self.factor():
-            return True
+        if factor := self.factor():
+            return factor
         self.__reset_pos__(pos)
 
-        return False
+        return None
 
-    def factor(self):
+    def factor(self) -> Optional[Node]:
         pos = self.__current_pos__
-        if self.__expect__(NUM) or self.__expect__(FLOAT):
-            return True
+        if self.__expect__(NUM):
+            return Node(AST_NUM, value=self.__input__[self.__current_pos__ - 1].value)
         self.__reset_pos__(pos)
 
-        if self.__expect__(LPAREN) and self.expr() and self.__expect__(RPAREN):
-            return True
+        if self.__expect__(FLOAT):
+            return Node(AST_FLOAT, value=self.__input__[self.__current_pos__ - 1].value)
         self.__reset_pos__(pos)
 
-        return False
+        if self.__expect__(LPAREN) and (exp := self.expr()) and self.__expect__(RPAREN):
+            return exp
+        self.__reset_pos__(pos)
+
+        return None
 
 
 # Parser starten
 
 if __name__ == '__main__':
+    text = "(-23 + 16 )*- 4.23 ** -(2**2)"
     parser = Parser()
-    lexer = lexer.Lexer()
-    token_list = lexer.lex("(-23 +16 )*- 4.23 ** -(2**2)")
+    lexer = Lexer()
+    token_list = lexer.lex(text)
     is_correct = parser.parse(token_list)
     print(token_list)
+    print(text)
     print(is_correct)
