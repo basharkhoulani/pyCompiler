@@ -30,7 +30,7 @@ class Parser:
     # term -> exponent MULT term | exponent
     # exponent -> factor EXP exponent | factor
     # factor -> USUB subt | subt
-    # subt -> (NUM, <value>) | LPAR expr RPAR
+    # subt -> (NUM, <value>) | (FLOAT, <value>) | LPAR expr RPAR
 
     def expr(self):
         pos = self.__current_pos__
