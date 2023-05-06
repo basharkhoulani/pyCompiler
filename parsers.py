@@ -7,8 +7,12 @@ class Parsers:
     def __init__(self,input: list[Token]) -> None:
         self.input = input
         self.__current_pos__ = 0
-        self.__current_token__ = self.input[self.__current_pos__]
         self.ruleStack = ["Error"]
+
+        if self.__current_pos__ < len(self.input):
+            self.__current_token__ = self.input[self.__current_pos__]
+        else:
+            self.__current_token__ = None
 
         #layout : (startPos, rule, sucess, EndPos, AST)
         self.memoryDict = (0, "error", False, 0, ast.Expr())
@@ -304,6 +308,6 @@ class Parsers:
          
          
 if __name__ == '__main__':
-    token_list = lexer.Lexer('3+-3+3**3**3').lex()
+    token_list = lexer.Lexer('').lex()
     print(token_list)
     print(Parsers(token_list).parse())

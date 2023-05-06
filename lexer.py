@@ -7,7 +7,11 @@ class Lexer:
     def __init__(self, input: str):
         self.pos = 0
         self.input = input
-        self.current_char = self.input[self.pos]
+
+        if self.pos + 1 < len(self.input):
+            self.current_char = self.input[self.pos]
+        else:
+            self.current_char = None
 
     def move(self):
         if self.pos + 1 < len(self.input):
