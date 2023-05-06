@@ -8,6 +8,7 @@ class Parser:
         self.input = input
         self.__current_pos__ = 0
         self.__current_token__ = self.input[self.__current_pos__]
+        self.__tree__ = None
 
     def __read_token__(self):
         self.__current_pos__ += 1
@@ -33,54 +34,79 @@ class Parser:
 
     def expr(self):
         pos = self.__current_pos__
-        if self.term() and self.__expect__(ADD) and self.expr():
-            return ast.Add()
+        term = self.term()
+        if term:
+            if self.__expect__(ADD):
+                expr = self.expr()
+                if expr:
+                    return ast.BinOp(term, ast.Add(), expr)
         self.__reset_pos__(pos)
-        if self.term():
-            return True
-        return False
+        if term:
+            return term
+        return None
 
     def term(self):
         pos = self.__current_pos__
-        if self.exponent() and self.__expect__(MUL) and self.term():
-            return ast.Mult()
+        expo = self.exponent()
+        if expo:
+            if self.__expect__(MUL):
+                term = self.term()
+                if term:
+                    return ast.BinOp(expo, ast.Mult(), term)
         self.__reset_pos__(pos)
-        if self.exponent():
-            return True
+        expo = self.exponent()
+        if expo:
+            return expo
+        return None
 
     def exponent(self):
         pos = self.__current_pos__
-        if self.factor() and self.__expect__(EXP) and self.exponent():
-            return ast.Pow()
+        factor = self.factor()
+        if factor:
+            if self.__expect__(EXP):
+                exponent = self.exponent()
+                if exponent:
+                    return ast.BinOp(factor, ast.Pow(), exponent)
         self.__reset_pos__(pos)
-        if self.factor():
-            return True
+        factor = self.factor()
+        if factor:
+            return factor
+        return None
 
     def factor(self):
         pos = self.__current_pos__
-        if self.__expect__(USUB) and self.subt():
-            return ast.USub()
+        if self.__expect__(USUB):
+            subt = self.subt()
+            if subt:
+                return ast.UnaryOp(ast.USub(), subt)
         self.__reset_pos__(pos)
-        if self.subt():
-            return True
+        subt = self.subt()
+        if subt:
+            return subt
+        return None
 
     def subt(self):
         pos = self.__current_pos__
-        if self.__expect__(LPAREN) and self.expr() and self.__expect__(RPAREN):
-            return True
+        if self.__expect__(LPAREN):
+            expression = self.expr()
+            if expression:
+                if self.__expect__(RPAREN):
+                    return expression
         self.__reset_pos__(pos)
-        if self.__expect__(NUM):
-            return Tru
-        return False
+        if self.__expect__(NUM) or self.__expect__(FLOAT):
+            return ast.Constant(self.input[self.__current_pos__ - 1].value)
+        return None
 
     def parse(self):
-        if self.expr() and self.input[self.__current_pos__].type == EOF:
-            return True
+        expression = self.expr()
+        if expression and self.input[self.__current_pos__].type == EOF:
+            return expression
         else:
-            return False
+            return None
 
 
 if __name__ == "__main__":
-    input = lexer.Lexer("1+2**3").lex()
-    parser = Parser(input)
-    print(parser.parse())
+    inputexpr = lexer.Lexer("(-23 + 16 )*- 4.23 ** -(2**2)").lex()
+    parser = Parser(inputexpr)
+    tree = parser.parse()
+    print(tree)
