@@ -48,6 +48,7 @@ class Parser:
         term = self.term()
         if term:
             return term
+        self.__fail__(pos, "expr")
 
     def term(self):
         pos = self.__current_pos__
@@ -61,6 +62,7 @@ class Parser:
         expo = self.exponent()
         if expo:
             return expo
+        self.__fail__(pos, "term")
 
     def exponent(self):
         pos = self.__current_pos__
@@ -74,6 +76,7 @@ class Parser:
         factor = self.factor()
         if factor:
             return factor
+        self.__fail__(pos, "exponent")
 
     def factor(self):
         pos = self.__current_pos__
@@ -103,11 +106,11 @@ class Parser:
         expression = self.expr()
         if expression and self.input[self.__current_pos__].type == EOF:
             return expression
-        raise ParserError(self.__current_pos__, "EOF", "parse")
+        self.__fail__(self.__current_pos__, "parse")
 
 
 if __name__ == "__main__":
-    inputexpr = lexer.Lexer("1+2+-(1+)").lex()
+    inputexpr = lexer.Lexer("1+2++1").lex()
     parser = Parser(inputexpr)
     tree = parser.parse()
     print(ast.dump(tree, indent=4))
