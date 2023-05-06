@@ -182,8 +182,10 @@ class Parser:
             self.__failed__("float")
         self.__reset_pos__(pos)
 
-        if self.__expect__(LPAREN) and (exp := self.expr()) and self.__expect__(RPAREN):
+        if (lp := self.__expect__(LPAREN)) and (exp := self.expr()) and (rp := self.__expect__(RPAREN)):
             return self.__memo_it__(pos, exp)
+        elif lp and exp and not rp:
+            self.__failed__(")")
         else:
             self.__failed__("expr")
         self.__reset_pos__(pos)
@@ -194,7 +196,7 @@ class Parser:
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(1 + 2) * 3 ** (-4 + 5)"
+    text = "(1 + 2 * 3 ** (-4 + 5)"
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)
