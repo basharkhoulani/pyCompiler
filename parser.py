@@ -9,7 +9,8 @@ class Parser:
     __input__: list[Token]
     __current_pos__: int
     __current_token__: Token
-    __furthest_pos__: int
+    __furthest_pos_begin__: int
+    __furthest_pos_end__: int
     __furthest_token__: Token
     __furthest_rule__: str
     __furthest_expected__: str
@@ -32,30 +33,30 @@ class Parser:
             return False
 
     def __failed__(self, expected: str, rule: str) -> None:
-        if self.__current_pos__ > self.__furthest_pos__:
-            self.__furthest_pos__ = self.__current_pos__
+        if self.__current_token__.to_pos >= self.__furthest_pos_end__:
+            self.__furthest_pos_begin__ = self.__current_token__.from_pos
+            self.__furthest_pos_end__ = self.__current_token__.to_pos
             self.__furthest_token__ = self.__current_token__
             self.__furthest_rule__ = rule
             self.__furthest_expected__ = expected
 
-    def parse(self, tokens: list[Token]) -> Optional[Ast]:
+    def parse(self, input: str, tokens: list[Token]) -> Optional[Ast]:
         self.__input__ = tokens
         self.__current_pos__ = 0
         self.__current_token__ = self.__input__[self.__current_pos__]
-        self.__furthest_pos__ = 0
-        self.__furthest_token__ = self.__input__[self.__furthest_pos__]
+        self.__furthest_pos_begin__ = 0
+        self.__furthest_pos_end__ = 0
+        self.__furthest_token__ = self.__input__[self.__current_pos__]
         self.__furthest_rule__ = ""
         self.__furthest_expected__ = ""
 
         if (exp := self.expr()) and self.__input__[self.__current_pos__].type == EOF:
             return Ast(exp)
-        elif exp and self.__input__[self.__current_pos__].type != EOF:
-            raise ParserError(self.__current_token__, "EOF", self.__current_pos__, "parse")
         else:
-            raise ParserError(self.__furthest_token__, self.__furthest_rule__, self.__furthest_pos__, self.__furthest_rule__)
+            raise ParserError(input, self.__furthest_token__, self.__furthest_expected__, self.__furthest_pos_begin__,
+                              self.__furthest_pos_end__, self.__furthest_rule__)
 
-
-# Grammatikregeln
+    # Grammatikregeln
 
     def expr(self) -> Optional[Node]:
         return self.pow()
@@ -63,10 +64,16 @@ class Parser:
     def pow(self) -> Optional[Node]:
         pos = self.__current_pos__
 
-        if (lhs := self.mul()) and (b1 := self.__expect__(MUL)) and (b2 := self.__expect__(MUL)) and (rhs := self.expr()):
+        if (lhs := self.mul()) and (b1 := self.__expect__(MUL)) \
+                and (b2 := self.__expect__(MUL)) and (rhs := self.expr()):
             return Node(AST_POW, children=[lhs, rhs])
-        else:
+        elif lhs and not b1:
+            self.__failed__("*", "pow")
+        elif lhs and b1 and not b2:
+            self.__failed__("*", "pow")
+        elif lhs and b1 and b2:
             self.__failed__("expr", "pow")
+
         self.__reset_pos__(pos)
 
         if mul := self.mul():
@@ -152,11 +159,11 @@ class Parser:
 # Parser starten
 
 if __name__ == '__main__':
-    text = "(1 ++ 2 )"
+    text = "(1 + 2 ) *** 3"
     parser = Parser()
     lexer = Lexer()
     token_list = lexer.lex(text)
-    ast = parser.parse(token_list)
+    ast = parser.parse(text, token_list)
     print(token_list)
     print(text)
     print(ast)
