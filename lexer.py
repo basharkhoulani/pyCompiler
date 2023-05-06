@@ -4,10 +4,9 @@ import re
 
 
 class Lexer:
-    def __init__(self, input: str):
-        self.pos = 0
-        self.input = input
-        self.current_char = self.input[self.pos]
+    pos: int
+    input: str
+    current_char: str
 
     def move(self):
         if self.pos + 1 < len(self.input):
@@ -45,7 +44,10 @@ class Lexer:
             return self.read_float()
         return Token(NUM, value)
 
-    def lex(self):
+    def lex(self, input_str: str) -> list[Token]:
+        self.pos = 0
+        self.input = input_str
+        self.current_char = self.input[self.pos]
         result = []
 
         while self.current_char is not None:
@@ -78,5 +80,5 @@ class Lexer:
 
 
 if __name__ == '__main__':
-    lexer = Lexer("(-23 +16 )*- 4.23")
-    print(lexer.lex())
+    lexer = Lexer()
+    print(lexer.lex("(-23 +16 )*- 4.23"))
