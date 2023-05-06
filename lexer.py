@@ -30,7 +30,7 @@ class Lexer:
             raise LexerError(self.input, self.current_char, "float", pos, self.pos)
         self.reset(self.pos + matches.end(0))
         if self.current_char == '0':
-            raise LexerError(self.input, self.current_char, "no leading zeros", self.pos, self.pos)
+            raise LexerError(self.input, self.current_char, "no following zeros", pos, self.pos)
         return Token(FLOAT, matches.group(0), pos, self.pos)
 
     def read_number(self):
@@ -85,4 +85,4 @@ class Lexer:
 
 if __name__ == '__main__':
     lexer = Lexer()
-    print(lexer.lex("(-23 +16 )*- 4.23"))
+    print(lexer.lex("(-23 +16 )*- ; 4.23"))
