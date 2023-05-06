@@ -9,9 +9,6 @@ class Parser:
         self.input = input
         self.__current_pos__ = 0
         self.__current_token__ = self.input[self.__current_pos__]
-        self.__failed_token__ = None
-        self.__failed_pos__ = None
-        self.__failed_rule__ = None
 
     def __read_token__(self):
         self.__current_pos__ += 1
@@ -28,12 +25,9 @@ class Parser:
         else:
             return False
 
-    def __fail__(self, token: Token, pos: int, rule: str) -> None:
-        self.__reset_pos__(pos)
-        self.__failed_token__ = token
-        self.__failed_pos__ = pos
-        self.__failed_rule__ = rule
-        raise ParserError(token.type, pos, rule)
+    def __fail__(self, expected: str, pos: int, rule: str) -> None:
+        failed_token = self.input[pos]
+        raise ParserError(failed_token.type, pos, expected, rule)
 
     # Grammatik Regeln
     # expr -> term ADD expr | term
@@ -54,7 +48,6 @@ class Parser:
         term = self.term()
         if term:
             return term
-        self.__fail__(self.__current_token__, pos, "expr")
 
     def term(self):
         pos = self.__current_pos__
@@ -68,7 +61,6 @@ class Parser:
         expo = self.exponent()
         if expo:
             return expo
-        self.__fail__(self.__current_token__, pos, "term")
 
     def exponent(self):
         pos = self.__current_pos__
@@ -82,7 +74,6 @@ class Parser:
         factor = self.factor()
         if factor:
             return factor
-        self.__fail__(self.__current_token__, pos, "exponent")
 
     def factor(self):
         pos = self.__current_pos__
@@ -94,7 +85,7 @@ class Parser:
         subt = self.subt()
         if subt:
             return subt
-        self.__fail__(self.__current_token__, pos, "factor")
+        self.__fail__("NUM or FLOAT", pos, "factor")
 
     def subt(self):
         pos = self.__current_pos__
@@ -106,16 +97,17 @@ class Parser:
         self.__reset_pos__(pos)
         if self.__expect__(NUM) or self.__expect__(FLOAT):
             return ast.Constant(self.input[self.__current_pos__ - 1].value)
-        self.__fail__(self.__current_token__, pos, "subt")
+        self.__fail__("NUM or FLOAT", pos, "subt")
 
     def parse(self):
         expression = self.expr()
         if expression and self.input[self.__current_pos__].type == EOF:
             return expression
+        raise ParserError(self.input[self.__current_pos__].type, self.__current_pos__, "EOF", "parse")
 
 
 if __name__ == "__main__":
-    inputexpr = lexer.Lexer("(-23 + 16 )*- 4.23 ** -(-2**-2)").lex()
+    inputexpr = lexer.Lexer("1+2+-(1+)").lex()
     parser = Parser(inputexpr)
     tree = parser.parse()
     print(ast.dump(tree, indent=4))
