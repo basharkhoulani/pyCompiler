@@ -9,9 +9,11 @@ EOF = 'EOF'
 
 
 class Token:
-    def __init__(self, type, value=None):
+    def __init__(self, type, value=None, from_pos=None, to_pos=None):
         self.type = type
         self.value = value
+        self.from_pos = from_pos
+        self.to_pos = to_pos
 
     def __repr__(self):
         if self.value is not None:
