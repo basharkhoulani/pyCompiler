@@ -4,6 +4,7 @@ TT_NUM = 'NUM'
 TT_ADD = 'ADD'
 TT_USUB = 'USUB'
 TT_MULT = 'MULT'
+TT_EOF = 'EOF'
 
 
 class Token:
