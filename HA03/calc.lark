@@ -6,14 +6,14 @@
 
 ?prod:      prod "*" pow        -> mul
     |       prod "/" pow        -> div
+    |       "-" pow             -> usub
     |       pow
 
-?pow:       atom "**" pow       -> pow
+?pow:       atom "**" prod      -> pow
     |       atom
 
 ?atom:      "(" exp ")"         -> group
     |       NUMBER              -> number
-    |       "-" atom            -> usub
     |       func
 
 func:       NAME "(" exp ("," exp)* ")"
