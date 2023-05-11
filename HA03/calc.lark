@@ -6,7 +6,6 @@
 
 ?prod:      prod "*" pow        -> mul
     |       prod "/" pow        -> div
-    |       "-" pow             -> usub
     |       pow
 
 ?pow:       atom "**" prod      -> pow
@@ -14,6 +13,7 @@
 
 ?atom:      "(" exp ")"         -> group
     |       NUMBER              -> number
+    |       "-" atom            -> usub
     |       func
 
 func:       NAME "(" exp ("," exp)* ")"
