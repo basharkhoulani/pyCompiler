@@ -1,3 +1,5 @@
+import math
+
 from lark import Lark, Transformer, v_args, Tree
 
 
@@ -29,7 +31,7 @@ def run_calculator() -> None:
 class CalcInterpreterPretty(Transformer):
     @staticmethod
     def number(num):
-        return int(num.value)
+        return float(num.value)
 
     @staticmethod
     def usub(child):
@@ -62,6 +64,24 @@ class CalcInterpreterPretty(Transformer):
     @staticmethod
     def exp(child):
         return child
+
+    @staticmethod
+    def func(*args):
+        name = args[0]
+        params = args[1:]
+        match name:
+            case "sin":
+                return math.sin(*params)
+            case "cos":
+                return math.cos(*params)
+            case "tan":
+                return math.tan(*params)
+            case "sqrt":
+                return math.sqrt(*params)
+            case "log":
+                return math.log(*params)
+            case _:
+                raise Exception(f"Unknown function '{name}'")
 
 
 if __name__ == '__main__':
