@@ -1,0 +1,8 @@
+exp: NUMBER -> num
+   | "-" exp -> usub
+   | exp "+" exp  -> add
+   | "(" exp ")"  
+
+
+DIGIT: /[0-9]/
+NUMBER: DIGIT+ 
