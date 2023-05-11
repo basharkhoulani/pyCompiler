@@ -1,8 +1,26 @@
-exp: NUMBER -> num
-   | "-" exp -> usub
-   | exp "+" exp  -> add
-   | "(" exp ")"  
+?exp:       sum                 -> exp
+
+?sum:       sum "+" prod        -> add
+    |       sum "-" prod        -> sub
+    |       prod
+
+?prod:      prod "*" pow        -> mul
+    |       prod "/" pow        -> div
+    |       pow
+
+?pow:       atom "**" pow       -> pow
+    |       atom
+
+?atom:      "(" exp ")"         -> group
+    |       NUMBER              -> number
+    |       "-" atom            -> usub
 
 
-DIGIT: /[0-9]/
-NUMBER: DIGIT+ 
+DIGIT:          /[0-9]/
+DIGIT_NO_ZERO:  /[1-9]/
+
+NUMBER: DIGIT
+    |   DIGIT_NO_ZERO DIGIT*
+
+%import common.WS
+%ignore WS
