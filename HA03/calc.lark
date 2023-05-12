@@ -8,7 +8,7 @@
     |       prod "/" pow        -> div
     |       pow
 
-?pow:       atom "**" prod      -> pow
+?pow:       atom "**" pow       -> pow
     |       atom
 
 ?atom:      "(" exp ")"         -> group
