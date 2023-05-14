@@ -1,0 +1,20 @@
+
+?exp: sum -> exp
+
+?sum :    sum "+" prod -> add
+        | sum "-" prod -> sub
+        | prod
+
+?prod :        prod "*" pow -> mult
+            | prod "/" pow -> div
+            | pow
+
+?pow :        pow "**" num -> pow
+            | num
+
+?num :     "(" exp ")"
+        | NUMBER -> number
+        | "-" num -> usub
+
+DIGIT: /[0-9]/
+NUMBER: DIGIT+
