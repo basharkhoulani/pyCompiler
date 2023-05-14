@@ -9,7 +9,7 @@ with open('calc.lark', 'r') as grammar_file:
 
 parser = Lark(grammar, start='exp', ambiguity='explicit')
 
-parsetree = parser.parse('5*5-6')
+parsetree = parser.parse('2**2**2')
 
 print(parsetree.pretty())
 

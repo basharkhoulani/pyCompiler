@@ -9,7 +9,7 @@
             | prod "/" pow -> div
             | pow
 
-?pow :        pow "**" num -> pow
+?pow :        num "**" pow -> pow
             | num
 
 ?num :     "(" exp ")"
