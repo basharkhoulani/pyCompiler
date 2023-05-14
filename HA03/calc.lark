@@ -1,0 +1,28 @@
+?exp:       sum                 -> exp
+
+?sum:       sum "+" prod        -> add
+    |       sum "-" prod        -> sub
+    |       prod
+
+?prod:      prod "*" pow        -> mul
+    |       prod "/" pow        -> div
+    |       pow
+
+?pow:       atom "**" pow       -> pow
+    |       atom
+
+?atom:      "(" exp ")"
+    |       NUMBER              -> number
+    |       "-" atom            -> usub
+    |       func
+
+func:       NAME "(" exp ("," exp)* ")"
+
+
+DIGIT:          /[0-9]/
+DIGIT_NO_ZERO:  /[1-9]/
+NAME:           /[a-zA-Z_][a-zA-Z0-9_]*/
+NUMBER:         (DIGIT | DIGIT_NO_ZERO DIGIT*) ["." (DIGIT | DIGIT* DIGIT_NO_ZERO)] [("e"|"E") ["+"|"-"] (DIGIT | DIGIT* DIGIT_NO_ZERO)]
+
+%import common.WS
+%ignore WS
