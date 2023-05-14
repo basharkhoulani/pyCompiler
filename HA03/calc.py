@@ -1,6 +1,6 @@
 import math
 
-from lark import Lark, Transformer, v_args, Tree
+from lark import Lark, Transformer, v_args
 
 
 def run_calculator() -> None:
@@ -9,7 +9,10 @@ def run_calculator() -> None:
     parser = Lark(grammar, start='exp', ambiguity='explicit')
     interpreter = CalcInterpreterPretty()
 
-    print("Commands:", "'exit' -> exit", "'tr <expr>' -> print parse tree + run expr", "<expr> -> run expr", sep="\n\t")
+    print("Commands:",
+          "'exit' -> exit",
+          "'tr <expr>' -> print parse tree + run expr",
+          "'<expr>' -> run expr", sep="\n\t")
 
     while True:
         input_str = input(">> ")
@@ -56,10 +59,6 @@ class CalcInterpreterPretty(Transformer):
     @staticmethod
     def pow(left, right):
         return left ** right
-
-    @staticmethod
-    def group(child):
-        return child
 
     @staticmethod
     def exp(child):

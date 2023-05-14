@@ -11,7 +11,7 @@
 ?pow:       atom "**" pow       -> pow
     |       atom
 
-?atom:      "(" exp ")"         -> group
+?atom:      "(" exp ")"
     |       NUMBER              -> number
     |       "-" atom            -> usub
     |       func
