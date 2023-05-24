@@ -114,3 +114,4 @@ cython_debug/
 /.idea/vcs.xml
 
 .DS_Store
+.vscode/settings.json

@@ -4,7 +4,7 @@ from compiler import Compiler
 compiler = Compiler()
 
 prog="""
-print(40 + 2)
+print(2 + 2 + 2 - (-2) -2   -2-2)
 """
 
 ast = parse(prog)
@@ -19,3 +19,13 @@ print("===============================")
 
 ast_after_select_instrs = compiler.select_instructions(ast_after_rco)
 print(ast_after_select_instrs)
+
+print("===============================")
+
+ast_after_assign_registers = compiler.assign_homes(ast_after_select_instrs)
+print(ast_after_assign_registers)
+
+print("===============================")
+
+ast_after_patch_instructions = compiler.patch_instructions(ast_after_assign_registers)
+print(ast_after_patch_instructions)
