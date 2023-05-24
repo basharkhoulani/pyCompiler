@@ -108,6 +108,9 @@ class Compiler:
                 out.append(Assign([target], targetExpr))
 
                 return out
+            
+            case _:
+                raise Exception("unkown ast stmt")
     
         #error
         raise Exception("wrong argument, expected expr" + str(type(s)))
@@ -126,17 +129,72 @@ class Compiler:
     ############################################################################
 
     def select_arg(self, e: expr) -> arg:
-        # YOUR CODE HERE
-        pass
+        match e:
+            case Name(value):
+                return Variable(value)
+            case Constant(value):
+                return Immediate(int(value))
+            
+            case _:
+                raise Exception("unkown type for argument(x86)")
+    
 
     def select_stmt(self, s: stmt) -> list[instr]:
-        pass
+        out = []
+        
+        match s:
+            case Assign(targets, targetExpr):
+                opTarget = self.select_arg(targets[0])
+
+                match targetExpr:
+                    case Name(value):
+                        out.append(Instr("movq", [self.select_arg(value), opTarget]))
+                    case Constant(value):
+                        out.append(Instr("movq", [self.select_arg(value), opTarget]))
+                    case UnaryOp(USub, expr):
+                        out.append(Instr("movq", [self.select_arg(expr), opTarget]))
+                        out.append(Instr("negq", [opTarget]))
+                    case BinOp(left, Add, right):
+                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
+                        out.append(Instr("addq", [self.select_arg(left), opTarget]))
+                    case BinOp(left, Sub, right):
+                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
+                        out.append(Instr("subq", [self.select_arg(left), opTarget]))
+                    case BinOp(left, Mult, right):
+                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
+                        out.append(Instr("mulq", [self.select_arg(left), opTarget]))
+                    case BinOp(left, Div, right):
+                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
+                        out.append(Instr("divq", [self.select_arg(left), opTarget]))
+                    case Call(func, args):
+                        if func.id != "read_int":
+                            raise Exception("only read_int is allowed for an assignment")
+                        
+                        out.append(Callq(func.id, 0))
+                        out.append(Instr("movq", [Reg("rax"), opTarget]))
+
+                    case _:
+                        raise Exception("unkown expr in instruction mapping")
+
+
+            case Expr(expr):
+                match expr:
+                    case Call(func, args):
+                        if func.id != "print":
+                            raise Exception("only print is allowed for an expression")
+                        
+                        out.append(Instr("movq", [self.select_arg(args[0]), Reg("rdi")]))
+                        out.append(Callq(func.id, 0))
+
+        return out
+                
+
 
     def select_instructions(self, p: Module) -> X86Program:
         out = []
 
         for i in p.body:
-            out_instr = self.select_stmt(i)
+            out = out + self.select_stmt(i)
 
         return X86Program(out)
 
@@ -146,22 +204,51 @@ class Compiler:
     ############################################################################
 
     def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
-        # YOUR CODE HERE
-        pass
+        
+        match a:
+            case Variable(id):
+                #do we already know this var?
+                if a in home:
+                    return home[a]
+                
+                #allocate memerory + create bookmark
+                offset = -(self.stack_size + 8)
+                self.stack_size = self.stack_size + 8
+                out = Deref("rbp", offset)
+                home[a] = out
+                return out
+
+        return a
+
 
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
-        # YOUR CODE HERE
-        pass
+        match i:
+            case Instr(name, args):
+                args_out = []
+
+                for a in args:
+                    args_out.append(self.assign_homes_arg(a, home))
+
+                return Instr(name, args_out)
+
+        return i
+
 
     def assign_homes_instrs(self, s: list[instr],
                             home: dict[Variable, arg]) -> list[instr]:
-        # YOUR CODE HERE
-        pass
+        out = []
+
+        for i in s:
+            out.append(self.assign_homes_instr(i, home))
+
+        return out
 
     def assign_homes(self, p: X86Program) -> X86Program:
-         # YOUR CODE HERE
-         pass
+        out = []
+        home = {}
+        out = self.assign_homes_instrs(p.body, home)
+        return X86Program(out)
 
     ############################################################################
     # Patch Instructions

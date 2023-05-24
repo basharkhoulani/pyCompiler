@@ -21,3 +21,8 @@ print("===============================")
 
 ast_after_select_instrs = compiler.select_instructions(ast_after_rco)
 print(ast_after_select_instrs)
+
+print("===============================")
+
+ast_after_select_homes = compiler.assign_homes(ast_after_select_instrs)
+print(ast_after_select_homes)
