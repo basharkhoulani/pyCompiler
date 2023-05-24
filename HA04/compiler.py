@@ -34,8 +34,10 @@ class Compiler:
                 nlhs = self.rco_exp(lhs, True)
                 nrhs = self.rco_exp(rhs, True)
                 result = (BinOp(nlhs[0], op, nrhs[0]), nlhs[1] + nrhs[1])
-            case Expr(Call(Name('input_int'), [])):
-                result = (Call(Name('input_int'), []), [])
+            case Call(Name(func), []):
+                result = (Call(Name(func), []), [])
+            case _:
+                raise Exception("Unknown expression type")
 
         if needs_to_be_atomic:
             tmp = get_fresh_tmp()
@@ -108,6 +110,10 @@ class Compiler:
                     result.append(Instr("movq", [arg, Variable(name)]))
                     arg = Variable(name)
                 result.append(Instr("negq", [arg]))
+                return result
+            case Call(Name(nm), []):
+                result.append(Callq(nm, 0))
+                result.append(Instr("movq", [Reg("rax"), Variable(name)]))
                 return result
             case BinOp(lhs, Add(), rhs):
                 inst = "addq"
@@ -189,6 +195,8 @@ class Compiler:
                 result.append(Instr(inst, [Deref(lhs, n), Immediate(m)]))
             case Instr(inst, [Deref(lhs, n), Reg(m)]):
                 result.append(Instr(inst, [Deref(lhs, n), Reg(m)]))
+            case Instr(inst, [Reg(n), Deref(rhs, m)]):
+                result.append(Instr(inst, [Reg(n), Deref(rhs, m)]))
             case Instr('negq', [v]):
                 result.append(Instr('negq', [v]))
             case Callq(name, n):

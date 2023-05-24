@@ -2,7 +2,7 @@
 
 typedef signed long long i64;
 
-i64 read_int() {
+i64 input_int() {
    i64 x;
    scanf("%lld", &x);
    return x;
@@ -10,4 +10,8 @@ i64 read_int() {
 
 void print(i64 x) {
    printf("%lld\n", x);
+}
+
+void print_pretty(i64 x) {
+   printf("value = %lld\n", x);
 }
