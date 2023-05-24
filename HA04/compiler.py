@@ -167,10 +167,10 @@ class Compiler:
                         out.append(Instr("movq", [self.select_arg(right), opTarget]))
                         out.append(Instr("divq", [self.select_arg(left), opTarget]))
                     case Call(func, args):
-                        if func.id != "read_int":
-                            raise Exception("only read_int is allowed for an assignment")
+                        if func.id != "input_int":
+                            raise Exception("only input_int is allowed for an assignment")
                         
-                        out.append(Callq(func.id, 0))
+                        out.append(Callq("read_int", 0))
                         out.append(Instr("movq", [Reg("rax"), opTarget]))
 
                     case _:
@@ -184,7 +184,7 @@ class Compiler:
                             raise Exception("only print is allowed for an expression")
                         
                         out.append(Instr("movq", [self.select_arg(args[0]), Reg("rdi")]))
-                        out.append(Callq(func.id, 0))
+                        out.append(Callq("print_int", 0))
 
         return out
                 
@@ -255,16 +255,40 @@ class Compiler:
     ############################################################################
 
     def patch_instr(self, i: instr) -> list[instr]:
-        # YOUR CODE HERE
-        pass
+        match i:
+            case Instr(name, args):
+
+                #early skip
+                if len(args)< 2:
+                    return [i]
+                
+                if len(args) != 2:
+                    raise Exception("instructions with more than two arguments are not supported")
+
+                #second argument is also always the target => second is always a ref
+                match args[0]:
+                    case Deref(reg, offset):
+                        helpReg = Reg("rax")
+                        return [Instr("movq", [args[0], helpReg]), Instr(name, [helpReg, args[1]])]
+                    case _:
+                        return [i]
+
+            case Callq(func, count):
+                return [i]
 
     def patch_instrs(self, s: list[instr]) -> list[instr]:
-        # YOUR CODE HERE
-        pass
+        out = []
+
+        for instr in s:
+            out = out + self.patch_instr(instr)
+
+        return out
+
 
     def patch_instructions(self, p: X86Program) -> X86Program:
-         # YOUR CODE HERE
-         pass
+        out = []
+        out = self.patch_instrs(p.body)
+        return X86Program(out)
 
     ############################################################################
     # Prelude & Conclusion

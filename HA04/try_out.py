@@ -26,3 +26,8 @@ print("===============================")
 
 ast_after_select_homes = compiler.assign_homes(ast_after_select_instrs)
 print(ast_after_select_homes)
+
+print("===============================")
+
+ast_after_patch_instructions = compiler.patch_instructions(ast_after_select_homes)
+print(ast_after_patch_instructions)
