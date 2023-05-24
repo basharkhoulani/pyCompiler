@@ -21,55 +21,58 @@ class Compiler:
 
     def rco_exp(self, e: expr, isAtomic : bool) -> tuple[expr, Temporaries]:
         
-        if isinstance(e, Constant):
-            return (e, [])
-        if isinstance(e, Name):
-            return (e, [])
-        if isinstance(e, Call):
-            helper_out = []
-            args_out = []
+        match e:
+            case Constant():
+                return (e, [])
+            case Name():
+                return (e, [])
+            case Call(func, args):
+                helper_out = []
+                args_out = []
 
-            #process args
-            for a in e.args:
-                targetExpr, helper = self.rco_exp(a, True)
-                helper_out = helper_out + helper
-                args_out.append(targetExpr)
+                #process args
+                for a in args:
+                    targetExpr, helper = self.rco_exp(a, True)
+                    helper_out = helper_out + helper
+                    args_out.append(targetExpr)
 
-            #atomic handling
-            op = Call(e.func, args_out)
-            if not isAtomic:
-                return (op, helper_out)
+                #atomic handling
+                op = Call(func, args_out)
+                if not isAtomic:
+                    return (op, helper_out)
 
-            helperVar = self.createHelperVariable()
-            helper_out.append((helperVar, op))
-            return (helperVar, helper_out)
-        if isinstance(e, UnaryOp):
-            #process childs
-            targetExpr, helpers = self.rco_exp(e.operand, True)
+                helperVar = self.createHelperVariable()
+                helper_out.append((helperVar, op))
+                return (helperVar, helper_out)
+            case UnaryOp(op, operand):
+                #process childs
+                targetExpr, helpers = self.rco_exp(operand, True)
 
-            #build output
-            op = UnaryOp(e.op, targetExpr)
-            if not isAtomic:
-                return (op, helpers)
+                #build output
+                op = UnaryOp(op, targetExpr)
+                if not isAtomic:
+                    return (op, helpers)
 
-            helperVar = self.createHelperVariable()
-            helpers.append((helperVar, op))
-            return (helperVar, helpers)
-        if isinstance(e, BinOp):
-            #process childs
-            targetExprL, helpers = self.rco_exp(e.left, True)
-            targetExprR, helpersR = self.rco_exp(e.right, True)
+                helperVar = self.createHelperVariable()
+                helpers.append((helperVar, op))
+                return (helperVar, helpers)
+            case BinOp(left, op, right):
+                #process childs
+                targetExprL, helpers = self.rco_exp(e.left, True)
+                targetExprR, helpersR = self.rco_exp(e.right, True)
 
-            #build output
-            helpers = helpers + helpersR
-            op = BinOp(targetExprL, e.op, targetExprR)
-            if not isAtomic:
-                return (op, helpers)
+                #build output
+                helpers = helpers + helpersR
+                op = BinOp(targetExprL, e.op, targetExprR)
+                if not isAtomic:
+                    return (op, helpers)
 
-            helperVar = self.createHelperVariable()
-            helpers.append((helperVar, op))
-            return (helperVar, helpers)
-        pass
+                helperVar = self.createHelperVariable()
+                helpers.append((helperVar, op))
+                return (helperVar, helpers)
+
+        raise Exception("Unkown expression" + str(type(e)))
+        return (NULL, [])
 
     #convertes Temporaries from above to a usable stmt list
     def convert_tupel(self, a : list[Tuple]) -> list[stmt]:
@@ -82,33 +85,32 @@ class Compiler:
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
 
-        if isinstance(s, Expr):
-            #expression
-            targetExpr, help_instr = self.rco_exp(s.value, False)
-            out = self.convert_tupel(help_instr)
-            out.append(Expr(targetExpr))
-            return out
-        elif isinstance(s, Assign):
-            #assign
-            targetExpr, help_instr = self.rco_exp(s.value, False)
-            
-            #fail check
-            if targetExpr==None:
-                raise Exception("rco_exp needs a valid result expr")
+        match s:
+            case Expr(value):
+                targetExpr, help_instr = self.rco_exp(value, False)
+                out = self.convert_tupel(help_instr)
+                out.append(Expr(targetExpr))
+                return out
+            case Assign(targets, value):
+                #assign
+                targetExpr, help_instr = self.rco_exp(value, False)
+                
+                #fail check
+                if targetExpr==None:
+                    raise Exception("rco_exp needs a valid result expr")
 
-            if len(s.targets) != 1 and type(s.targets[0]) == type(Name):
-                raise Exception("only single var assignment supported")
+                if len(targets) != 1 and type(targets[0]) == type(Name):
+                    raise Exception("only single var assignment supported")
 
-            #build atomare instructions
-            target = s.targets[0]
-            out = self.convert_tupel(help_instr)
-            out.append(Assign([target], targetExpr))
+                #build atomare instructions
+                target = targets[0]
+                out = self.convert_tupel(help_instr)
+                out.append(Assign([target], targetExpr))
 
-            return out
-        else:
-            raise Exception("wrong argument, expected expr" + str(type(s)))
-
+                return out
+    
         #error
+        raise Exception("wrong argument, expected expr" + str(type(s)))
         return []
     
     def remove_complex_operands(self, p: Module) -> Module:
@@ -128,12 +130,16 @@ class Compiler:
         pass
 
     def select_stmt(self, s: stmt) -> list[instr]:
-        # YOUR CODE HERE
         pass
 
     def select_instructions(self, p: Module) -> X86Program:
-        # YOUR CODE HERE
-        pass
+        out = []
+
+        for i in p.body:
+            out_instr = self.select_stmt(i)
+
+        return X86Program(out)
+
 
     ############################################################################
     # Assign Homes
