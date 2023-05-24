@@ -12,22 +12,112 @@ get_fresh_tmp = lambda: generate_name('tmp')
 class Compiler:
     def __init__(self):
         self.stack_size = 0
-
+        
     ############################################################################
     # Remove Complex Operands
     ############################################################################
+    def createHelperVariable(self) -> Name:
+        return Name(get_fresh_tmp())
 
-    def rco_exp(self, e: expr, needs_to_be_atomic: bool) -> tuple[expr, Temporaries]:
-        # YOUR CODE HERE
+    def rco_exp(self, e: expr, isAtomic : bool) -> tuple[expr, Temporaries]:
+        
+        if isinstance(e, Constant):
+            return (e, [])
+        if isinstance(e, Name):
+            return (e, [])
+        if isinstance(e, Call):
+            helper_out = []
+            args_out = []
+
+            #process args
+            for a in e.args:
+                targetExpr, helper = self.rco_exp(a, True)
+                helper_out = helper_out + helper
+                args_out.append(targetExpr)
+
+            #atomic handling
+            op = Call(e.func, args_out)
+            if not isAtomic:
+                return (op, helper_out)
+
+            helperVar = self.createHelperVariable()
+            helper_out.append((helperVar, op))
+            return (helperVar, helper_out)
+        if isinstance(e, UnaryOp):
+            #process childs
+            targetExpr, helpers = self.rco_exp(e.operand, True)
+
+            #build output
+            op = UnaryOp(e.op, targetExpr)
+            if not isAtomic:
+                return (op, helpers)
+
+            helperVar = self.createHelperVariable()
+            helpers.append((helperVar, op))
+            return (helperVar, helpers)
+        if isinstance(e, BinOp):
+            #process childs
+            targetExprL, helpers = self.rco_exp(e.left, True)
+            targetExprR, helpersR = self.rco_exp(e.right, True)
+
+            #build output
+            helpers = helpers + helpersR
+            op = BinOp(targetExprL, e.op, targetExprR)
+            if not isAtomic:
+                return (op, helpers)
+
+            helperVar = self.createHelperVariable()
+            helpers.append((helperVar, op))
+            return (helperVar, helpers)
         pass
+
+    #convertes Temporaries from above to a usable stmt list
+    def convert_tupel(self, a : list[Tuple]) -> list[stmt]:
+        out = []
+
+        for target, expr in a:
+            out.append(Assign([target], expr))
+
+        return out
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
-        # YOUR CODE HERE
-        pass
 
+        if isinstance(s, Expr):
+            #expression
+            targetExpr, help_instr = self.rco_exp(s.value, False)
+            out = self.convert_tupel(help_instr)
+            out.append(Expr(targetExpr))
+            return out
+        elif isinstance(s, Assign):
+            #assign
+            targetExpr, help_instr = self.rco_exp(s.value, False)
+            
+            #fail check
+            if targetExpr==None:
+                raise Exception("rco_exp needs a valid result expr")
+
+            if len(s.targets) != 1 and type(s.targets[0]) == type(Name):
+                raise Exception("only single var assignment supported")
+
+            #build atomare instructions
+            target = s.targets[0]
+            out = self.convert_tupel(help_instr)
+            out.append(Assign([target], targetExpr))
+
+            return out
+        else:
+            raise Exception("wrong argument, expected expr" + str(type(s)))
+
+        #error
+        return []
+    
     def remove_complex_operands(self, p: Module) -> Module:
-        # YOUR CODE HERE
-        pass
+        out = []
+        
+        for a in p.body:
+            out = out + self.rco_stmt(a)
+
+        return Module(out)
 
     ############################################################################
     # Select Instructions
