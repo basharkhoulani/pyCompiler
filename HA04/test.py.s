@@ -3,7 +3,8 @@ main:
     pushq %rbp
     movq %rsp, %rbp
     subq $560, %rsp
-    movq $50, -8(%rbp)
+    callq input_int
+    movq %rax, -8(%rbp)
     movq -8(%rbp), %rax
     movq %rax, -16(%rbp)
     movq -8(%rbp), %rax

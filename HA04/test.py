@@ -1,4 +1,4 @@
-v = 50
+v = input_int()
 
 a = v+v+v+v+v
 b = v-v-v-v-v
