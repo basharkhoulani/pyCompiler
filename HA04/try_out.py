@@ -4,7 +4,7 @@ from compiler import Compiler
 compiler = Compiler()
 
 prog="""
-v = input()
+v = 50
 
 a = v+v+v+v+v
 b = v-v-v-v-v

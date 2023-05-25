@@ -1,4 +1,4 @@
-v = input_int()
+v = 50
 
 a = v+v+v+v+v
 b = v-v-v-v-v
@@ -13,4 +13,3 @@ j = v-v-v-v+v+v
 k = v+v-v-v-v+v
 l = v-v+v+v+v-v
 print(a - b + c - d + e - f + g - h + i - j + k - l)
-print_pretty(a)

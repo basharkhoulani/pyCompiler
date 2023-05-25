@@ -104,6 +104,9 @@ class Compiler:
         nrhs: arg = None
         inst: str = None
         match exp:
+            case Constant(n):
+                result.append(Instr("movq", [Immediate(n), Variable(name)]))
+                return result
             case UnaryOp(USub(), rhs):
                 arg = self.select_arg(rhs)
                 if (isinstance(arg, Immediate)):
