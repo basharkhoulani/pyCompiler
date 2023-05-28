@@ -111,10 +111,6 @@ class Compiler:
             case _:
                 raise Exception("unkown ast stmt")
     
-        #error
-        raise Exception("wrong argument, expected expr" + str(type(s)))
-        return []
-    
     def remove_complex_operands(self, p: Module) -> Module:
         out = []
         
