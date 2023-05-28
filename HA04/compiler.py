@@ -72,7 +72,6 @@ class Compiler:
                 return (helperVar, helpers)
 
         raise Exception("Unkown expression" + str(type(e)))
-        return (NULL, [])
 
     #convertes Temporaries from above to a usable stmt list
     def convert_tupel(self, a : list[Tuple]) -> list[stmt]:
@@ -150,20 +149,20 @@ class Compiler:
                     case Name(value):
                         out.append(Instr("movq", [self.select_arg(value), opTarget]))
                     case Constant(value):
-                        out.append(Instr("movq", [self.select_arg(value), opTarget]))
-                    case UnaryOp(USub, expr):
+                        out.append(Instr("movq", [self.select_arg(targetExpr), opTarget]))
+                    case UnaryOp(USub(), expr):
                         out.append(Instr("movq", [self.select_arg(expr), opTarget]))
                         out.append(Instr("negq", [opTarget]))
-                    case BinOp(left, Add, right):
+                    case BinOp(left, Add(), right):
                         out.append(Instr("movq", [self.select_arg(right), opTarget]))
                         out.append(Instr("addq", [self.select_arg(left), opTarget]))
-                    case BinOp(left, Sub, right):
+                    case BinOp(left, Sub(), right):
                         out.append(Instr("movq", [self.select_arg(right), opTarget]))
                         out.append(Instr("subq", [self.select_arg(left), opTarget]))
-                    case BinOp(left, Mult, right):
+                    case BinOp(left, Mult(), right):
                         out.append(Instr("movq", [self.select_arg(right), opTarget]))
                         out.append(Instr("mulq", [self.select_arg(left), opTarget]))
-                    case BinOp(left, Div, right):
+                    case BinOp(left, Div(), right):
                         out.append(Instr("movq", [self.select_arg(right), opTarget]))
                         out.append(Instr("divq", [self.select_arg(left), opTarget]))
                     case Call(func, args):
@@ -184,7 +183,7 @@ class Compiler:
                             raise Exception("only print is allowed for an expression")
                         
                         out.append(Instr("movq", [self.select_arg(args[0]), Reg("rdi")]))
-                        out.append(Callq("print_int", 0))
+                        out.append(Callq("print_int", 1))
 
         return out
                 
