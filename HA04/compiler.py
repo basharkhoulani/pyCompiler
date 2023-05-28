@@ -48,7 +48,8 @@ class Compiler:
     def rco_stmt(self, s: stmt) -> list[stmt]:
         schema: tuple[expr, Temporaries]
         match s:
-            case Expr(Call(Name(name), [expr])): schema = self.rco_call_one_arg(name, expr)
+            case Expr(Call(Name(name), [Constant(val)])): schema = self.rco_call_const(name, val)
+            case Expr(Call(Name(name), [expr])): schema = self.rco_call(name, expr)
             case Assign([Name(name)], expr): schema = self.rco_assign(name, expr)
             case Expr(expr): schema = self.rco_exp(expr, False)
 
@@ -57,8 +58,13 @@ class Compiler:
             result.append(Assign([temp[0]], temp[1]))
         result.append(schema[0])
         return result
+     
+    def rco_call_const(self, name: str, val: int) -> tuple[expr, Temporaries]:
+        tmp = get_fresh_tmp()
+        schema = (Expr(Call(Name(name), [Name(tmp)])), [(Name(tmp), Constant(val))])
+        return schema
 
-    def rco_call_one_arg(self, name: str, expr: expr) -> tuple[expr, Temporaries]:
+    def rco_call(self, name: str, expr: expr) -> tuple[expr, Temporaries]:
         schema = self.rco_exp(expr, True)
         schema = (Expr(Call(Name(name), [schema[0]])), schema[1])
         return schema
@@ -87,7 +93,7 @@ class Compiler:
 
     def select_stmt(self, s: stmt) -> list[instr]:
         match s:
-            case Expr(Call(Name(name), [Name(var)])): return self.select_call(name, var)
+            case Expr(Call(Name('print'), [Name(var)])): return self.select_call('print_int', var)
             case Assign([Name(name)], exp): return self.select_assign(name, exp)
             case _: raise Exception("Unknown statement type")
 
@@ -114,8 +120,8 @@ class Compiler:
                     arg = Variable(name)
                 result.append(Instr("negq", [arg]))
                 return result
-            case Call(Name(nm), []):
-                result.append(Callq(nm, 0))
+            case Call(Name('input_int'), []):
+                result.append(Callq('read_int', 0))
                 result.append(Instr("movq", [Reg("rax"), Variable(name)]))
                 return result
             case BinOp(lhs, Add(), rhs):
