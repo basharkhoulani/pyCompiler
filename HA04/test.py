@@ -1,6 +1,6 @@
 v = input_int()
 
-a = v+v+v+v+v
+a = v+v+v+v+v+v
 b = v-v-v-v-v
 c = v+v+v-v-v-v
 d = v-v-v+v+v+v
