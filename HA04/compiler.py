@@ -48,7 +48,6 @@ class Compiler:
     def rco_stmt(self, s: stmt) -> list[stmt]:
         schema: tuple[expr, Temporaries]
         match s:
-            case Expr(Call(Name(name), [Constant(val)])): schema = self.rco_call_const(name, val)
             case Expr(Call(Name(name), [expr])): schema = self.rco_call(name, expr)
             case Assign([Name(name)], expr): schema = self.rco_assign(name, expr)
             case Expr(expr): schema = self.rco_exp(expr, False)
@@ -58,11 +57,6 @@ class Compiler:
             result.append(Assign([temp[0]], temp[1]))
         result.append(schema[0])
         return result
-     
-    def rco_call_const(self, name: str, val: int) -> tuple[expr, Temporaries]:
-        tmp = get_fresh_tmp()
-        schema = (Expr(Call(Name(name), [Name(tmp)])), [(Name(tmp), Constant(val))])
-        return schema
 
     def rco_call(self, name: str, expr: expr) -> tuple[expr, Temporaries]:
         schema = self.rco_exp(expr, True)
@@ -93,51 +87,37 @@ class Compiler:
 
     def select_stmt(self, s: stmt) -> list[instr]:
         match s:
-            case Expr(Call(Name('print'), [Name(var)])): return self.select_call('print_int', var)
+            case Expr(Call(Name('print'), [exp])): return self.select_call('print_int', exp)
             case Assign([Name(name)], exp): return self.select_assign(name, exp)
             case _: raise Exception("Unknown statement type")
 
-    def select_call(self, name: str, var: str) -> list[instr]:
+    def select_call(self, name: str, exp: expr) -> list[instr]:
         result: list[instr] = [
-            Instr("movq", [self.select_arg(Name(var)), Reg("rdi")]),
+            Instr("movq", [self.select_arg(exp), Reg("rdi")]),
             Callq(name, 1)
         ]
         return result
 
     def select_assign(self, name: str, exp: expr) -> list[instr]:
-        result: list[instr] = []
-        nlhs: arg = None
-        nrhs: arg = None
-        inst: str = None
         match exp:
             case Constant(n):
-                result.append(Instr("movq", [Immediate(n), Variable(name)]))
-                return result
+                return [Instr("movq", [Immediate(n), Variable(name)])]
             case UnaryOp(USub(), rhs):
                 arg = self.select_arg(rhs)
+                result = []
                 if (isinstance(arg, Immediate)):
                     result.append(Instr("movq", [arg, Variable(name)]))
                     arg = Variable(name)
                 result.append(Instr("negq", [arg]))
                 return result
             case Call(Name('input_int'), []):
-                result.append(Callq('read_int', 0))
-                result.append(Instr("movq", [Reg("rax"), Variable(name)]))
-                return result
+                return [Callq('read_int', 0), Instr("movq", [Reg("rax"), Variable(name)])]
             case BinOp(lhs, Add(), rhs):
-                inst = "addq"
-                nlhs = self.select_arg(lhs)
-                nrhs = self.select_arg(rhs)
+                return [Instr("movq", [self.select_arg(lhs), Variable(name)]), Instr("addq", [self.select_arg(rhs), Variable(name)])]
             case BinOp(lhs, Sub(), rhs):
-                inst = "subq"
-                nlhs = self.select_arg(rhs)
-                nrhs = self.select_arg(lhs)
+                return [Instr("movq", [self.select_arg(lhs), Variable(name)]), Instr("subq", [self.select_arg(rhs), Variable(name)])]
             case _:
-                raise Exception("Unknown expression type")
-
-        result.append(Instr("movq", [nrhs, Variable(name)]))
-        result.append(Instr(inst, [nlhs, Variable(name)]))
-        return result
+                raise Exception("Unknown expression type: " + str(exp))
 
     def select_instructions(self, p: Module) -> X86Program:
         list: list[instr] = []
@@ -162,23 +142,19 @@ class Compiler:
             case Immediate(n): return Immediate(n)
             case Reg(name): return Reg(name)
         
-        raise Exception("Unknown argument type")
+        raise Exception("Unknown argument type: " + str(a))
 
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
         match i:
-            case Instr('addq', [lhs, rhs]):
-                return Instr('addq', [self.assign_homes_arg(lhs, home), self.assign_homes_arg(rhs, home)])
-            case Instr('subq', [lhs, rhs]):
-                return Instr('subq', [self.assign_homes_arg(lhs, home), self.assign_homes_arg(rhs, home)])
-            case Instr('negq', [arg]):
-                return Instr('negq', [self.assign_homes_arg(arg, home)])
-            case Instr('movq', [lhs, rhs]):
-                return Instr('movq', [self.assign_homes_arg(lhs, home), self.assign_homes_arg(rhs, home)])
+            case Instr(inst, [lhs, rhs]):
+                return Instr(inst, [self.assign_homes_arg(lhs, home), self.assign_homes_arg(rhs, home)])
+            case Instr(inst, [arg]):
+                return Instr(inst, [self.assign_homes_arg(arg, home)])
             case Callq(name, n):
                 return Callq(name, n)
         
-        raise Exception("Unknown instruction type")
+        raise Exception("Unknown instruction type: " + str(i))
 
     def assign_homes_instrs(self, s: list[instr],
                             home: dict[Variable, arg]) -> list[instr]:
@@ -198,20 +174,10 @@ class Compiler:
             case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
                 result.append(Instr('movq', [Deref(lhs, n), Reg('rax')]))
                 result.append(Instr(inst, [Reg('rax'), Deref(rhs, m)]))
-            case Instr(inst, [Immediate(n), Deref(rhs, m)]):
-                result.append(Instr(inst, [Immediate(n), Deref(rhs, m)]))
-            case Instr(inst, [Deref(lhs, n), Immediate(m)]):
-                result.append(Instr(inst, [Deref(lhs, n), Immediate(m)]))
-            case Instr(inst, [Deref(lhs, n), Reg(m)]):
-                result.append(Instr(inst, [Deref(lhs, n), Reg(m)]))
-            case Instr(inst, [Reg(n), Deref(rhs, m)]):
-                result.append(Instr(inst, [Reg(n), Deref(rhs, m)]))
             case Instr('negq', [v]):
                 result.append(Instr('negq', [v]))
-            case Callq(name, n):
-                result.append(Callq(name, n))
-            case _:
-                raise Exception("Unknown instruction type")
+            case i:
+                result.append(i)
         return result
 
     def patch_instrs(self, s: list[instr]) -> list[instr]:

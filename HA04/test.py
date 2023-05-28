@@ -1,1 +1,2 @@
-print(input_int() + 2)
+x = input_int()
+print(x + x + x)
