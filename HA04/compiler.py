@@ -88,6 +88,7 @@ class Compiler:
     def select_stmt(self, s: stmt) -> list[instr]:
         match s:
             case Expr(Call(Name('print'), [exp])): return self.select_call('print_int', exp)
+            case Expr(Call(Name(fn), [exp])): return self.select_call(fn, exp)
             case Assign([Name(name)], exp): return self.select_assign(name, exp)
             case _: raise Exception("Unknown statement type: " + str(s))
 
@@ -101,17 +102,13 @@ class Compiler:
     def select_assign(self, name: str, exp: expr) -> list[instr]:
         match exp:
             case Constant(n):
-                return [
-                    Instr("movq", [Immediate(n), Variable(name)])
-                ]
+                return [Instr("movq", [Immediate(n), Variable(name)])]
             case UnaryOp(USub(), rhs):
-                return [
-                    Instr("negq", [self.select_arg(rhs)])
-                ]
+                return [Instr("negq", [self.select_arg(rhs)])]
             case Call(Name('input_int'), []):
-                return [
-                    Callq('read_int', 0), Instr("movq", [Reg("rax"), Variable(name)])
-                ]
+                return [Callq('read_int', 0), Instr("movq", [Reg("rax"), Variable(name)])]
+            case Call(Name(fn), []):
+                return [Callq(fn, 0), Instr("movq", [Reg("rax"), Variable(name)])]
             case BinOp(lhs, Add(), rhs):
                 return [
                     Instr("movq", [self.select_arg(lhs), Variable(name)]), 
