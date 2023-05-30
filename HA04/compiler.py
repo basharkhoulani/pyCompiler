@@ -20,7 +20,7 @@ class Compiler:
     # Remove Complex Operands
     ############################################################################
 
-    def rco_exp(self, e: expr, needs_to_be_atomic: bool) -> tuple[expr, Temporaries]:
+    def rco_exp(self, e: expr, atomic: bool) -> tuple[expr, Temporaries]:
         result: tuple[expr, Temporaries] = (None, [])
         match e:
             case Constant(n):
@@ -28,8 +28,7 @@ class Compiler:
             case Name(name):
                 return (Name(name), [])
             case UnaryOp(op, rhs):
-                result = self.rco_exp(rhs, True)
-                result = (UnaryOp(op, result[0]), [])
+                result = (UnaryOp(op, self.rco_exp(rhs, True)[0]), [])
             case BinOp(lhs, op, rhs):
                 nlhs = self.rco_exp(lhs, True)
                 nrhs = self.rco_exp(rhs, True)
@@ -37,9 +36,9 @@ class Compiler:
             case Call(Name(func), []):
                 result = (Call(Name(func), []), [])
             case _:
-                raise Exception("Unknown expression type")
+                raise Exception("Unknown expression type: " + str(e))
 
-        if needs_to_be_atomic:
+        if atomic:
             tmp = get_fresh_tmp()
             result = (Name(tmp), result[1] + [(Name(tmp), result[0])])
 
@@ -51,6 +50,7 @@ class Compiler:
             case Expr(Call(Name(name), [expr])): schema = self.rco_call(name, expr)
             case Assign([Name(name)], expr): schema = self.rco_assign(name, expr)
             case Expr(expr): schema = self.rco_exp(expr, False)
+            case _: raise Exception("Unknown statement type: " + str(s))
 
         result: list[stmt] = []
         for temp in schema[1]:
@@ -83,13 +83,13 @@ class Compiler:
         match e:
             case Constant(n): return Immediate(n)
             case Name(name): return Variable(name)
-            case _: raise Exception("Unknown argument type")
+            case _: raise Exception("Unknown argument type: " + str(e))
 
     def select_stmt(self, s: stmt) -> list[instr]:
         match s:
             case Expr(Call(Name('print'), [exp])): return self.select_call('print_int', exp)
             case Assign([Name(name)], exp): return self.select_assign(name, exp)
-            case _: raise Exception("Unknown statement type")
+            case _: raise Exception("Unknown statement type: " + str(s))
 
     def select_call(self, name: str, exp: expr) -> list[instr]:
         result: list[instr] = [
@@ -101,21 +101,27 @@ class Compiler:
     def select_assign(self, name: str, exp: expr) -> list[instr]:
         match exp:
             case Constant(n):
-                return [Instr("movq", [Immediate(n), Variable(name)])]
+                return [
+                    Instr("movq", [Immediate(n), Variable(name)])
+                ]
             case UnaryOp(USub(), rhs):
-                arg = self.select_arg(rhs)
-                result = []
-                if (isinstance(arg, Immediate)):
-                    result.append(Instr("movq", [arg, Variable(name)]))
-                    arg = Variable(name)
-                result.append(Instr("negq", [arg]))
-                return result
+                return [
+                    Instr("negq", [self.select_arg(rhs)])
+                ]
             case Call(Name('input_int'), []):
-                return [Callq('read_int', 0), Instr("movq", [Reg("rax"), Variable(name)])]
+                return [
+                    Callq('read_int', 0), Instr("movq", [Reg("rax"), Variable(name)])
+                ]
             case BinOp(lhs, Add(), rhs):
-                return [Instr("movq", [self.select_arg(lhs), Variable(name)]), Instr("addq", [self.select_arg(rhs), Variable(name)])]
+                return [
+                    Instr("movq", [self.select_arg(lhs), Variable(name)]), 
+                    Instr("addq", [self.select_arg(rhs), Variable(name)])
+                ]
             case BinOp(lhs, Sub(), rhs):
-                return [Instr("movq", [self.select_arg(lhs), Variable(name)]), Instr("subq", [self.select_arg(rhs), Variable(name)])]
+                return [
+                    Instr("movq", [self.select_arg(lhs), Variable(name)]), 
+                    Instr("subq", [self.select_arg(rhs), Variable(name)])
+                ]
             case _:
                 raise Exception("Unknown expression type: " + str(exp))
 
@@ -139,22 +145,29 @@ class Compiler:
                     arg = Deref('rbp', -self.stack_size)
                     home[name] = arg
                     return arg
-            case Immediate(n): return Immediate(n)
-            case Reg(name): return Reg(name)
-        
+            case Immediate(n): 
+                return Immediate(n)
+            case Reg(name): 
+                return Reg(name)
+
         raise Exception("Unknown argument type: " + str(a))
 
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
         match i:
             case Instr(inst, [lhs, rhs]):
-                return Instr(inst, [self.assign_homes_arg(lhs, home), self.assign_homes_arg(rhs, home)])
+                return Instr(inst, [
+                    self.assign_homes_arg(lhs, home), 
+                    self.assign_homes_arg(rhs, home)
+                ])
             case Instr(inst, [arg]):
-                return Instr(inst, [self.assign_homes_arg(arg, home)])
+                return Instr(inst, [
+                    self.assign_homes_arg(arg, home)
+                ])
             case Callq(name, n):
                 return Callq(name, n)
-        
-        raise Exception("Unknown instruction type: " + str(i))
+            case _:
+                raise Exception("Unknown instruction type: " + str(i))
 
     def assign_homes_instrs(self, s: list[instr],
                             home: dict[Variable, arg]) -> list[instr]:
@@ -169,7 +182,7 @@ class Compiler:
     ############################################################################
 
     def patch_instr(self, i: instr) -> list[instr]:
-        result : list[instr] = []
+        result: list[instr] = []
         match i:
             case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
                 result.append(Instr('movq', [Deref(lhs, n), Reg('rax')]))
@@ -181,7 +194,7 @@ class Compiler:
         return result
 
     def patch_instrs(self, s: list[instr]) -> list[instr]:
-        result : list[instr] = []
+        result: list[instr] = []
         for i in s:
             result.extend(self.patch_instr(i))
         return result
