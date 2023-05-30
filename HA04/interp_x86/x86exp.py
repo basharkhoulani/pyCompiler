@@ -8,7 +8,7 @@
 
 from dataclasses import dataclass
 from typing import List, Set, Dict, Tuple, Any
-from .base_ast import AST
+from ast import AST
 
 # arg
 @dataclass(frozen=True, eq=True)
