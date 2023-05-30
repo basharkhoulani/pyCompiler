@@ -103,6 +103,11 @@ class Compiler:
         match exp:
             case Constant(n):
                 return [Instr("movq", [Immediate(n), Variable(name)])]
+            case UnaryOp(USub(), Constant(n)):
+                return [
+                    Instr("movq", [self.select_arg(Constant(n)), Variable(name)]),
+                    Instr("negq", [Variable(name)])
+                ]
             case UnaryOp(USub(), rhs):
                 return [Instr("negq", [self.select_arg(rhs)])]
             case Call(Name('input_int'), []):
