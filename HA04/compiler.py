@@ -184,6 +184,7 @@ class Compiler:
         return [self.assign_homes_instr(i, home) for i in s]
 
     def assign_homes(self, p: X86Program) -> X86Program:
+        self.stack_size = 0
         p.body = self.assign_homes_instrs(p.body, {})
         return p
 
