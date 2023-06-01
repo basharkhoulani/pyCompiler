@@ -119,14 +119,18 @@ class Compiler:
             case Call(Name(fn), []):
                 return [Callq(fn, 0), Instr("movq", [Reg("rax"), Variable(name)])]
             case BinOp(lhs, Add(), rhs):
+                tmp = get_fresh_tmp()
                 return [
-                    Instr("movq", [self.select_arg(lhs), Variable(name)]), 
-                    Instr("addq", [self.select_arg(rhs), Variable(name)])
+                    Instr("movq", [self.select_arg(lhs), Variable(tmp)]),
+                    Instr("addq", [self.select_arg(rhs), Variable(tmp)]),
+                    Instr("movq", [Variable(tmp), Variable(name)])
                 ]
             case BinOp(lhs, Sub(), rhs):
+                tmp = get_fresh_tmp()
                 return [
-                    Instr("movq", [self.select_arg(lhs), Variable(name)]), 
-                    Instr("subq", [self.select_arg(rhs), Variable(name)])
+                    Instr("movq", [self.select_arg(lhs), Variable(tmp)]),
+                    Instr("subq", [self.select_arg(rhs), Variable(tmp)]),
+                    Instr("movq", [Variable(tmp), Variable(name)])
                 ]
             case _:
                 raise Exception("Unknown expression type: " + str(exp))

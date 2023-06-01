@@ -1,3 +1,5 @@
-x = -input_int()
-x = -x
-print(-x)
+x = 1 + 1
+x = x + 1
+x = 1 + x
+x = x + x
+print(x)
