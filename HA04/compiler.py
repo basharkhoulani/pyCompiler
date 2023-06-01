@@ -28,7 +28,8 @@ class Compiler:
             case Name(name):
                 return (Name(name), [])
             case UnaryOp(op, rhs):
-                result = (UnaryOp(op, self.rco_exp(rhs, True)[0]), [])
+                rhs = self.rco_exp(rhs, True)
+                result = (UnaryOp(op, rhs[0]), rhs[1])
             case BinOp(lhs, op, rhs):
                 nlhs = self.rco_exp(lhs, True)
                 nrhs = self.rco_exp(rhs, True)
@@ -109,7 +110,10 @@ class Compiler:
                     Instr("negq", [Variable(name)])
                 ]
             case UnaryOp(USub(), rhs):
-                return [Instr("negq", [self.select_arg(rhs)])]
+                return [
+                    Instr("movq", [self.select_arg(rhs), Variable(name)]),
+                    Instr("negq", [Variable(name)])
+                ]
             case Call(Name('input_int'), []):
                 return [Callq('read_int', 0), Instr("movq", [Reg("rax"), Variable(name)])]
             case Call(Name(fn), []):
@@ -186,7 +190,12 @@ class Compiler:
     def patch_instr(self, i: instr) -> list[instr]:
         result: list[instr] = []
         match i:
+            case Instr('movq', [Reg(a), Reg(b)]):
+                if a == b:
+                    return []
             case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
+                if inst == 'movq' and lhs == rhs and n == m:
+                    return []
                 result.append(Instr('movq', [Deref(lhs, n), Reg('rax')]))
                 result.append(Instr(inst, [Reg('rax'), Deref(rhs, m)]))
             case Instr('negq', [v]):
