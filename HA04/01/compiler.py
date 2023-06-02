@@ -24,7 +24,12 @@ class Compiler:
             case Name(a):
                 return Name(a), []
             case Call(Name(func), []):
-                    return e, []
+                expr = Call(Name(func), [])
+                if not needs_to_be_atomic:
+                    return expr, []
+                else:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, [(tmp, expr)]
             case UnaryOp(op, e):
                 e, tmps = self.rco_exp(e, True)
                 expr = UnaryOp(op, e)
