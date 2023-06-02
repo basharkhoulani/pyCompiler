@@ -4,12 +4,11 @@ from compiler import Compiler
 compiler = Compiler()
 
 prog="""
-x = 10
-y = 10 + x + x + 20
-z = -y + x + -y
-z = -z
-z = z + input_int()
-print(1 + z)
+x = 1 + 1
+x = x + 1
+x = 1 + x
+x = x + x
+print(x)
 """
 
 ast = parse(prog)

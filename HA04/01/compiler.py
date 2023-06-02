@@ -106,14 +106,18 @@ class Compiler:
                 left = self.select_arg(e1)
                 right = self.select_arg(e2)
                 var = self.select_arg(name)
-                result.append(Instr("movq", [left, var]))
-                result.append(Instr("addq", [right, var]))
+                tmp = Variable(get_fresh_tmp())
+                result.append(Instr("movq", [left, tmp]))
+                result.append(Instr("addq", [right, tmp]))
+                result.append(Instr("movq", [tmp, var]))
             case Assign([name], BinOp(e1, Sub(), e2)):
                 left = self.select_arg(e1)
                 right = self.select_arg(e2)
                 var = self.select_arg(name)
-                result.append(Instr("movq", [left, var]))
-                result.append(Instr("subq", [right, var]))
+                tmp = Variable(get_fresh_tmp())
+                result.append(Instr("movq", [left, tmp]))
+                result.append(Instr("subq", [right, tmp]))
+                result.append(Instr("movq", [tmp, var]))
             case Assign([name], UnaryOp(USub(), e)):
                 arg = self.select_arg(e)
                 var = self.select_arg(name)
@@ -152,7 +156,8 @@ class Compiler:
                     return home[v]
                 else:
                     self.stack_size += 8
-                    return Deref("rbp", -self.stack_size)
+                    home[v] = Deref("rbp", -self.stack_size)
+                    return home[v]
             case Immediate(i):
                 return Immediate(i)
             case Reg(r):
@@ -182,6 +187,7 @@ class Compiler:
     def assign_homes(self, p: X86Program) -> X86Program:
         match p:
             case X86Program(body):
+                self.stack_size = 0
                 home = {}
                 return X86Program(self.assign_homes_instrs(body, home))
 
@@ -192,15 +198,19 @@ class Compiler:
     def patch_instr(self, i: instr) -> list[instr]:
         result = []
         match i:
-            case Instr(instr, [x, y]) if x == y:
-                return []
-            case Instr(instr, [Deref(name1, offset1), Deref(name2, offset2)]):
-                result.append(Instr("movq", [Deref(name1, offset1), Reg("rax")]))
-                result.append(Instr(instr, [Reg("rax"), Deref(name2, offset2)]))
-            case _:
+            case Instr('movq', [Reg(a), Reg(b)]):
+                if a == b:
+                    return []
+            case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
+                if inst == 'movq' and lhs == rhs and n == m:
+                    return []
+                result.append(Instr('movq', [Deref(lhs, n), Reg('rax')]))
+                result.append(Instr(inst, [Reg('rax'), Deref(rhs, m)]))
+            case Instr('negq', [v]):
+                result.append(Instr('negq', [v]))
+            case i:
                 result.append(i)
         return result
-
 
     def patch_instrs(self, s: list[instr]) -> list[instr]:
         result = []
