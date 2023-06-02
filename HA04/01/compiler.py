@@ -97,9 +97,9 @@ class Compiler:
     def select_stmt(self, s: stmt) -> list[instr]:
         result = []
         match s:
-            case Expr(Call(Name(func), [e])):
+            case Expr(Call(Name("print"), [e])):
                 result.append(Instr("movq", [self.select_arg(e), Reg("rdi")]))
-                result.append(Callq(func, 1))
+                result.append(Callq("print_int", 1))
             case Expr(exp):
                 result.append(Instr("movq", [exp, Reg("rax")]))
             case Assign([name], BinOp(e1, Add(), e2)):
@@ -119,9 +119,9 @@ class Compiler:
                 var = self.select_arg(name)
                 result.append(Instr("movq", [arg, var]))
                 result.append(Instr("negq", [var]))
-            case Assign([name], Call(Name(func), [])):
+            case Assign([name], Call(Name("input_int"), [])):
                 var = self.select_arg(name)
-                result.append(Callq(func, 0))
+                result.append(Callq("read_int", 0))
                 result.append(Instr("movq", [Reg("rax"), var]))
             case Assign([name], value):
                 arg = self.select_arg(value)
@@ -163,11 +163,11 @@ class Compiler:
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
         match i:
-            case Instr(op, args):
-                new_args = []
-                for arg in args:
-                    new_args.append(self.assign_homes_arg(arg, home))
-                return Instr(op, new_args)
+            case Instr(op, [e1, e2]):
+                return Instr(op, [self.assign_homes_arg(e1, home),
+                                  self.assign_homes_arg(e2, home)])
+            case Instr(op, [e]):
+                return Instr(op, [self.assign_homes_arg(e, home)])
             case Callq(func, n):
                 return Callq(func, n)
         raise Exception("Invalid program")
