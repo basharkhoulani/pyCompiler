@@ -146,38 +146,72 @@ class Compiler:
     ############################################################################
 
     def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
-        # YOUR CODE HERE
-        pass
+        match a:
+            case Variable(v):
+                if v in home:
+                    return home[v]
+                else:
+                    self.stack_size += 8
+                    return Deref("rbp", -self.stack_size)
+            case Immediate(i):
+                return Immediate(i)
+            case Reg(r):
+                return Reg(r)
+            case _:
+                raise Exception("Invalid program")
 
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
-        # YOUR CODE HERE
-        pass
+        match i:
+            case Instr(op, args):
+                new_args = []
+                for arg in args:
+                    new_args.append(self.assign_homes_arg(arg, home))
+                return Instr(op, new_args)
+            case Callq(func, n):
+                return Callq(func, n)
+        raise Exception("Invalid program")
 
     def assign_homes_instrs(self, s: list[instr],
                             home: dict[Variable, arg]) -> list[instr]:
-        # YOUR CODE HERE
-        pass
+        result = []
+        for i in s:
+            result.append(self.assign_homes_instr(i, home))
+        return result
 
     def assign_homes(self, p: X86Program) -> X86Program:
-         # YOUR CODE HERE
-         pass
+        match p:
+            case X86Program(body):
+                home = {}
+                return X86Program(self.assign_homes_instrs(body, home))
 
     ############################################################################
     # Patch Instructions
     ############################################################################
 
     def patch_instr(self, i: instr) -> list[instr]:
-        # YOUR CODE HERE
-        pass
+        result = []
+        match i:
+            case Instr(instr, [x, y]) if x == y:
+                return []
+            case Instr(instr, [Deref(name1, offset1), Deref(name2, offset2)]):
+                result.append(Instr("movq", [Deref(name1, offset1), Reg("rax")]))
+                result.append(Instr(instr, [Reg("rax"), Deref(name2, offset2)]))
+            case _:
+                result.append(i)
+        return result
+
 
     def patch_instrs(self, s: list[instr]) -> list[instr]:
-        # YOUR CODE HERE
-        pass
+        result = []
+        for i in s:
+            result.extend(self.patch_instr(i))
+        return result
 
     def patch_instructions(self, p: X86Program) -> X86Program:
-         # YOUR CODE HERE
-         pass
+        match p:
+            case X86Program(body):
+                return X86Program(self.patch_instrs(body))
 
     ############################################################################
     # Prelude & Conclusion

@@ -1,8 +1,7 @@
-import os
 import compiler
 import interp_Lvar
 import type_check_Lvar
-from utils import run_tests, run_one_test
+from utils import run_tests
 from interp_x86.eval_x86 import interp_x86
 
 compiler = compiler.Compiler()
