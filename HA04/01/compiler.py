@@ -18,16 +18,61 @@ class Compiler:
     ############################################################################
 
     def rco_exp(self, e: expr, needs_to_be_atomic: bool) -> tuple[expr, Temporaries]:
-        # YOUR CODE HERE
-        pass
+        match e:
+            case Constant(a):
+                return Constant(a), []
+            case Name(a):
+                return Name(a), []
+            case Call(Name('input_int'), []):
+                return Call(Name('input_int'), []), []
+            case UnaryOp(op, e):
+                e, tmps = self.rco_exp(e, True)
+                if not needs_to_be_atomic:
+                    return UnaryOp(op, e), tmps
+                else:
+                    tmp = get_fresh_tmp()
+                    return Name(tmp), tmps + [(Name(tmp), UnaryOp(op, e))]
+            case BinOp(e1, op, e2):
+                e1, tmps1 = self.rco_exp(e1, True)
+                e2, tmps2 = self.rco_exp(e2, True)
+                if not needs_to_be_atomic:
+                    return BinOp(e1, op, e2), tmps1 + tmps2
+                else:
+                    tmp = get_fresh_tmp()
+                    return Name(tmp), tmps1 + tmps2 + [(Name(tmp), BinOp(e1, op, e2))]
+            case _:
+                raise Exception("Invalid program")
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
-        # YOUR CODE HERE
-        pass
+        result = []
+        match s:
+            case Expr(Call(Name(func), [e])):
+                e, tmps = self.rco_exp(e, True)
+                for tmp in tmps:
+                    result.append(Assign([tmp[0]], tmp[1]))
+                result.append(e)
+            case Expr(exp):
+                exp, tmps = self.rco_exp(exp, False)
+                for tmp in tmps:
+                    result.append(Assign([tmp[0]], tmp[1]))
+                result.append(exp)
+            case Assign([name], exp):
+                exp, tmps = self.rco_exp(exp, False)
+                for tmp in tmps:
+                    result.append(Assign([tmp[0]], tmp[1]))
+                result.append(exp)
+            case _:
+                raise Exception("Invalid program")
+        return result
 
     def remove_complex_operands(self, p: Module) -> Module:
-        # YOUR CODE HERE
-        pass
+        result = []
+        match p:
+            case Module(body):
+                for s in body:
+                    result.extend(self.rco_stmt(s))
+                return Module(result)
+        raise Exception("Invalid program")
 
     ############################################################################
     # Select Instructions
