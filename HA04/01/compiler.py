@@ -131,19 +131,6 @@ class Compiler:
                 arg = self.select_arg(value)
                 var = self.select_arg(name)
                 result.append(Instr("movq", [arg, var]))
-            case Call(Name("input_int"), []):
-                result.append(Callq("read_int", 0))
-            case BinOp(e1, Add(), e2):
-                left = self.select_arg(e1)
-                right = self.select_arg(e2)
-                result.append(Instr("addq", [left, right]))
-            case BinOp(e1, Sub(), e2):
-                left = self.select_arg(e1)
-                right = self.select_arg(e2)
-                result.append(Instr("subq", [left, right]))
-            case UnaryOp(USub(), e):
-                arg = self.select_arg(e)
-                result.append(Instr("negq", [arg]))
             case _:
                 raise Exception("Invalid program")
         return result
