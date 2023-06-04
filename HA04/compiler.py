@@ -104,6 +104,8 @@ class Compiler:
         match exp:
             case Constant(n):
                 return [Instr("movq", [Immediate(n), Variable(name)])]
+            case Name(name2):
+                return [Instr("movq", [Variable(name2), Variable(name)])]
             case UnaryOp(USub(), Constant(n)):
                 return [
                     Instr("movq", [self.select_arg(Constant(n)), Variable(name)]),
@@ -203,8 +205,6 @@ class Compiler:
                     return []
                 result.append(Instr('movq', [Deref(lhs, n), Reg('rax')]))
                 result.append(Instr(inst, [Reg('rax'), Deref(rhs, m)]))
-            case Instr('negq', [v]):
-                result.append(Instr('negq', [v]))
             case i:
                 result.append(i)
         return result
