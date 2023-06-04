@@ -207,11 +207,14 @@ class Compiler:
             case Expr(expr):
                 match expr:
                     case Call(func, args):
-                        if func.id != "print":
-                            raise Exception("only print is allowed for an expression")
-                        
-                        out.append(Instr("movq", [self.select_arg(args[0]), Reg("rdi")]))
-                        out.append(Callq("print_int", 1))
+                        if func.id == "input_int":
+                            out.append(Callq("read_int", 0))
+                        else:
+                            if func.id != "print":
+                                raise Exception("only print is allowed for an expression")
+                            
+                            out.append(Instr("movq", [self.select_arg(args[0]), Reg("rdi")]))
+                            out.append(Callq("print_int", 1))
 
         return out
                 
