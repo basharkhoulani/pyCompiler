@@ -150,17 +150,49 @@ class Compiler:
                         out.append(Instr("movq", [self.select_arg(expr), opTarget]))
                         out.append(Instr("negq", [opTarget]))
                     case BinOp(left, Add(), right):
-                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
-                        out.append(Instr("addq", [self.select_arg(left), opTarget]))
+
+                        #when expr = target wrong code gets generated
+                        if (right == targets[0]):
+                            helpVar = self.createHelperVariable()
+                            helpARG = self.select_arg(helpVar)
+                            out.append(Instr("movq", [self.select_arg(right), helpARG]))
+                            right = helpVar
+
+                        out.append(Instr("movq", [self.select_arg(left), opTarget]))
+                        out.append(Instr("addq", [self.select_arg(right), opTarget]))
                     case BinOp(left, Sub(), right):
-                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
-                        out.append(Instr("subq", [self.select_arg(left), opTarget]))
+
+                        #when expr = target wrong code gets generated
+                        if (right == targets[0]):
+                            helpVar = self.createHelperVariable()
+                            helpARG = self.select_arg(helpVar)
+                            out.append(Instr("movq", [self.select_arg(right), helpARG]))
+                            right = helpVar
+
+                        out.append(Instr("movq", [self.select_arg(left), opTarget]))
+                        out.append(Instr("subq", [self.select_arg(right), opTarget]))
                     case BinOp(left, Mult(), right):
-                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
-                        out.append(Instr("mulq", [self.select_arg(left), opTarget]))
+
+                        #when expr = target wrong code gets generated
+                        if (right == targets[0]):
+                            helpVar = self.createHelperVariable()
+                            helpARG = self.select_arg(helpVar)
+                            out.append(Instr("movq", [self.select_arg(right), helpARG]))
+                            right = helpVar
+
+                        out.append(Instr("movq", [self.select_arg(left), opTarget]))
+                        out.append(Instr("mulq", [self.select_arg(right), opTarget]))
                     case BinOp(left, Div(), right):
-                        out.append(Instr("movq", [self.select_arg(right), opTarget]))
-                        out.append(Instr("divq", [self.select_arg(left), opTarget]))
+
+                        #when expr = target wrong code gets generated
+                        if (right == targets[0]):
+                            helpVar = self.createHelperVariable()
+                            helpARG = self.select_arg(helpVar)
+                            out.append(Instr("movq", [self.select_arg(right), helpARG]))
+                            right = helpVar
+
+                        out.append(Instr("movq", [self.select_arg(left), opTarget]))
+                        out.append(Instr("divq", [self.select_arg(right), opTarget]))
                     case Call(func, args):
                         if func.id != "input_int":
                             raise Exception("only input_int is allowed for an assignment")
