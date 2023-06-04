@@ -1,0 +1,1 @@
+python3 compiler.py test.py && gcc -m64 runtime.c test.py.s -o main && clear && ./main
