@@ -143,7 +143,7 @@ class Compiler:
 
                 match targetExpr:
                     case Name(value):
-                        out.append(Instr("movq", [self.select_arg(value), opTarget]))
+                        out.append(Instr("movq", [self.select_arg(targetExpr), opTarget]))
                     case Constant(value):
                         out.append(Instr("movq", [self.select_arg(targetExpr), opTarget]))
                     case UnaryOp(USub(), expr):
