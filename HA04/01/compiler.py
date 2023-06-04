@@ -131,6 +131,19 @@ class Compiler:
                 arg = self.select_arg(value)
                 var = self.select_arg(name)
                 result.append(Instr("movq", [arg, var]))
+            case Call(Name("input_int"), []):
+                result.append(Callq("read_int", 0))
+            case BinOp(e1, Add(), e2):
+                left = self.select_arg(e1)
+                right = self.select_arg(e2)
+                result.append(Instr("addq", [left, right]))
+            case BinOp(e1, Sub(), e2):
+                left = self.select_arg(e1)
+                right = self.select_arg(e2)
+                result.append(Instr("subq", [left, right]))
+            case UnaryOp(USub(), e):
+                arg = self.select_arg(e)
+                result.append(Instr("negq", [arg]))
             case _:
                 raise Exception("Invalid program")
         return result
@@ -185,9 +198,9 @@ class Compiler:
         return result
 
     def assign_homes(self, p: X86Program) -> X86Program:
+        self.stack_size = 0
         match p:
             case X86Program(body):
-                self.stack_size = 0
                 home = {}
                 return X86Program(self.assign_homes_instrs(body, home))
 
@@ -206,8 +219,6 @@ class Compiler:
                     return []
                 result.append(Instr('movq', [Deref(lhs, n), Reg('rax')]))
                 result.append(Instr(inst, [Reg('rax'), Deref(rhs, m)]))
-            case Instr('negq', [v]):
-                result.append(Instr('negq', [v]))
             case i:
                 result.append(i)
         return result
