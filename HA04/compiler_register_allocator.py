@@ -177,12 +177,37 @@ class Compiler(compiler.Compiler):
         #translate to regs
         out_dict = {}
         for var in reg_index_map:
-            out_dict[var] = self.index_to_reg(reg_index_map[var])
+            out_dict[var.id] = self.index_to_reg(reg_index_map[var])
         return out_dict
 
     ############################################################################
     # Assign Homes
     ############################################################################
+    def assign_homes_instr(self, i: instr,
+                           home: dict[Variable, arg]) -> instr:
+        match i:
+            case Instr("movq", [Variable(lhs), Variable(rhs)]):
+                #handle all edge cases
+                if lhs in home and not rhs in home:
+                   home[rhs] = home[lhs]
+
+                return Instr("movq", [
+                    self.assign_homes_arg(Variable(lhs), home), 
+                    self.assign_homes_arg(Variable(rhs), home)
+                ])
+            case Instr(inst, [lhs, rhs]):
+                return Instr(inst, [
+                    self.assign_homes_arg(lhs, home), 
+                    self.assign_homes_arg(rhs, home)
+                ])
+            case Instr(inst, [arg]):
+                return Instr(inst, [
+                    self.assign_homes_arg(arg, home)
+                ])
+            case Callq(name, n):
+                return Callq(name, n)
+            case _:
+                raise Exception("Unknown instruction type: " + str(i))
 
     def pretty(self, d, indent=0):
         for key, value in d.items():
@@ -194,14 +219,16 @@ class Compiler(compiler.Compiler):
 
     def assign_homes(self, p: X86Program) -> X86Program:
         uncover_live_data = self.uncover_live(p)
+        self.pretty(uncover_live_data)
+
         graph = self.build_interference(p, uncover_live_data)
         reg_mapping = self.color_graph(graph, set())
 
+        out = []
+        for instr in p.body:
+            out.append(self.assign_homes_instr(instr, reg_mapping))
 
-        self.pretty(reg_mapping)
-        #print(graph.show().source)
-    
-        return p
+        return X86Program(out)
 
     ###########################################################################
     # Patch Instructions

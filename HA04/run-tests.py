@@ -24,5 +24,5 @@ interp_dict = {
     'patch_instructions': interp_x86,
 }
 
-run_tests('var', compiler, 'var', typecheck_dict, interp_dict)
+run_tests('var', ra_compiler, 'var', typecheck_dict, interp_dict)
 run_tests('regalloc', ra_compiler, 'regalloc', typecheck_dict, interp_dict)
