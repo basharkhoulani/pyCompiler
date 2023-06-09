@@ -1,13 +1,23 @@
 from ast import parse,dump
-from compiler import Compiler
+from compiler_register_allocator import Compiler
 
 compiler = Compiler()
 
-prog="""
-print_int(0)
+progA="""
+a = 1
+b = 2
+c = a + b
+print_int(c + 4 + a + b)
 """
 
-ast = parse(prog)
+progB="""
+a = 1
+b = 2
+c = a + b
+print_int(c + 4)
+"""
+
+ast = parse(progB)
 print(dump(ast, indent=2))
 
 print("===============================")
