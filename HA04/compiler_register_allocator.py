@@ -127,15 +127,23 @@ class Compiler(compiler.Compiler):
 
     def color_graph(self, graph: UndirectedAdjList, variables: set[location]) -> dict[Variable, arg]:
         stack = []
+        spilled = []
 
         #fill stack
-        while (graph.num_vertices() - len(stack)) != 1:
+        while (graph.num_vertices() - len(stack)) != 1 and graph.num_vertices() != 0:
             found = False
+            LeftVertex = None
+            NumConnections = graph.num_vertices() + 1
+
             for v in graph.vertices():
-                if not (v in stack):
+                if (v not in stack):
                     edgeCount = 0
                     for e in graph.out_edges(v):
                         edgeCount = edgeCount + 1
+
+                    if edgeCount < NumConnections:
+                        NumConnections = edgeCount
+                        LeftVertex = v
 
                     if edgeCount < self.reg_count:
                         stack.append(v)
@@ -144,12 +152,16 @@ class Compiler(compiler.Compiler):
 
             #we can't map a new variable we need to put one on the stack
             if not found:
-                raise Exception("can't map a variable to stack")
+                #find least used available variable
+                if LeftVertex != None:
+                    spilled.append(LeftVertex)
+                else:
+                    raise Exception("Can't find least used vertex")
                 
         #color last one
         reg_index_map = {}
         for v in graph.vertices():
-                if not (v in stack):
+                if (v not in stack):
                     reg_index_map[v] = 0
                     break
         
@@ -209,20 +221,22 @@ class Compiler(compiler.Compiler):
             case _:
                 raise Exception("Unknown instruction type: " + str(i))
 
-    def pretty(self, d, indent=0):
-        for key, value in d.items():
-            print('\t' * indent + str(key))
-            if isinstance(value, dict):
-                self.pretty(value, indent+1)
-            else:
-                print('\t' * (indent+1) + str(value))
 
     def assign_homes(self, p: X86Program) -> X86Program:
         uncover_live_data = self.uncover_live(p)
-        self.pretty(uncover_live_data)
-
         graph = self.build_interference(p, uncover_live_data)
         reg_mapping = self.color_graph(graph, set())
+
+        #process edge case
+        for index in range(len(p.body)-1, -1, -1):
+            match p.body[index]:
+                case Instr("movq", [Variable(a), Reg(b)]):
+                    if (a not in reg_mapping):
+                        reg_mapping[a] = Reg(b)
+                case Instr("movq", [Variable(a), Variable(b)]):
+                    if (b in reg_mapping) and (a not in reg_mapping):
+                        reg_mapping[a] = reg_mapping[b]
+
 
         out = []
         for instr in p.body:
@@ -235,15 +249,52 @@ class Compiler(compiler.Compiler):
     ###########################################################################
 
     def patch_instructions(self, p: X86Program) -> X86Program:
+        p.body = self.patch_instrs(p.body)
         return p
-        pass
 
     ###########################################################################
     # Prelude & Conclusion
     ###########################################################################
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
-        pass
+
+        #handle used calle saved vars
+        calleSavedPrelude = []
+        calleSavedPostLude = []
+
+        for x in range(0, self.reg_count):
+            for instr in p.body:
+                reg = self.index_to_reg(x)
+                match instr:
+                    case Instr(name, args):
+                        if reg in args:
+                            self.stack_size += 8
+                            targetStack = Deref('rbp', -self.stack_size)
+                            calleSavedPrelude.append(Instr("movq", [reg, targetStack]))
+                            calleSavedPostLude.append(Instr("movq", [targetStack, reg]))
+                            break
+
+        new_body = []
+        adjust_stack_size = self.stack_size if self.stack_size % 16 == 0 else self.stack_size + 8
+
+        prelude = [Instr("pushq", [Reg("rbp")]), Instr(
+           "movq", [Reg("rsp"), Reg("rbp")])]
+        if adjust_stack_size > 0:
+            prelude.append(
+               Instr('subq', [Immediate(adjust_stack_size), Reg('rsp')]))
+
+        new_body.extend(prelude)
+        new_body.extend(calleSavedPrelude)
+        new_body.extend(p.body)
+        new_body.extend(calleSavedPostLude)
+
+        conclusion = [Instr('popq', [Reg('rbp')]), Instr('retq', [])]
+        if adjust_stack_size > 0:
+            conclusion.insert(
+               0, Instr('addq', [Immediate(adjust_stack_size), Reg('rsp')]))
+
+        new_body.extend(conclusion)
+        return X86Program(new_body)
         
 ##################################################
 # Execute

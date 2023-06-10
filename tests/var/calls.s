@@ -2,46 +2,41 @@
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $112, %rsp
+    subq $64, %rsp
+    movq %rdi, -24(%rbp)
+    movq %r8, -32(%rbp)
+    movq %r9, -40(%rbp)
+    movq %r10, -48(%rbp)
+    movq %r11, -56(%rbp)
     callq read_int
-    movq %rax, -8(%rbp)
+    movq %rax, %r10
     callq read_int
-    movq %rax, -16(%rbp)
-    movq $1, -24(%rbp)
-    addq $1, -24(%rbp)
-    movq -24(%rbp), %rax
-    movq %rax, -32(%rbp)
-    movq -8(%rbp), %rax
-    movq %rax, -40(%rbp)
-    movq -16(%rbp), %rax
-    addq %rax, -40(%rbp)
-    movq -40(%rbp), %rax
-    movq %rax, -48(%rbp)
-    movq -32(%rbp), %rax
-    movq %rax, -56(%rbp)
-    movq -48(%rbp), %rax
-    addq %rax, -56(%rbp)
-    movq -56(%rbp), %rax
-    movq %rax, -64(%rbp)
+    movq %rax, %r8
+    movq $1, %r11
+    addq $1, %r11
+    movq %r11, %r9
+    movq %r10, %r11
+    addq %r8, %r11
+    movq %r11, %r10
+    movq %r9, %r11
+    addq %r10, %r11
+    movq %r11, %r9
     callq read_int
-    movq %rax, -72(%rbp)
+    movq %rax, %r11
     callq read_int
-    movq %rax, -80(%rbp)
-    movq -72(%rbp), %rax
-    movq %rax, -88(%rbp)
-    movq -80(%rbp), %rax
-    addq %rax, -88(%rbp)
-    movq -88(%rbp), %rax
-    movq %rax, -96(%rbp)
-    movq -64(%rbp), %rax
-    movq %rax, -104(%rbp)
-    movq -96(%rbp), %rax
-    subq %rax, -104(%rbp)
-    movq -104(%rbp), %rax
-    movq %rax, -112(%rbp)
-    movq -112(%rbp), %rdi
+    movq %rax, %r10
+    addq %r10, %r11
+    movq %r11, %r10
+    movq %r9, %r11
+    subq %r10, %r11
+    movq %r11, %rdi
     callq print_int
-    addq $112, %rsp
+    movq -24(%rbp), %rdi
+    movq -32(%rbp), %r8
+    movq -40(%rbp), %r9
+    movq -48(%rbp), %r10
+    movq -56(%rbp), %r11
+    addq $64, %rsp
     popq %rbp
     retq 
 

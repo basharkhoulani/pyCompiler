@@ -6,14 +6,20 @@ compiler = Compiler()
 progA="""
 a = 1
 b = 2
-c = a + b
-print_int(c + 4 + a + b)
+c = a + b + c
+c = a + b + c
+c = a + b + c
+c = a + b + c
+c = a + b + c
+c = a + b + c
+print_int(c + 4)
 """
 
 progB="""
 a = 1
 b = 2
-c = a + b
+c = 3
+c = a + b + c
 print_int(c + 4)
 """
 
@@ -38,4 +44,9 @@ print(ast_after_assign_registers)
 print("===============================")
 
 ast_after_patch_instructions = compiler.patch_instructions(ast_after_assign_registers)
+print(ast_after_patch_instructions)
+
+print("===============================")
+
+ast_after_patch_instructions = compiler.prelude_and_conclusion(ast_after_assign_registers)
 print(ast_after_patch_instructions)

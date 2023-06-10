@@ -200,6 +200,8 @@ class Compiler:
             case Instr('movq', [Reg(a), Reg(b)]):
                 if a == b:
                     return []
+                else:
+                    result.append(i)
             case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
                 if inst == 'movq' and lhs == rhs and n == m:
                     return []
