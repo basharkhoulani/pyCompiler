@@ -130,13 +130,13 @@ class Compiler(compiler.Compiler):
         spilled = []
 
         #fill stack
-        while (graph.num_vertices() - len(stack)) != 1 and graph.num_vertices() != 0:
+        while (graph.num_vertices() - len(stack) - len(spilled)) != 1 and graph.num_vertices() != 0:
             found = False
             LeftVertex = None
             NumConnections = graph.num_vertices() + 1
 
             for v in graph.vertices():
-                if (v not in stack):
+                if (v not in stack) and (v not in spilled):
                     edgeCount = 0
                     for e in graph.out_edges(v):
                         edgeCount = edgeCount + 1
@@ -182,6 +182,7 @@ class Compiler(compiler.Compiler):
                 if not collision:
                     sucessPaint = True
                     reg_index_map[x] = try_index
+                    break
             
             if not sucessPaint:
                 raise Exception("Error during coloring")
@@ -190,6 +191,10 @@ class Compiler(compiler.Compiler):
         out_dict = {}
         for var in reg_index_map:
             out_dict[var.id] = self.index_to_reg(reg_index_map[var])
+
+        for var in spilled:
+            out_dict[var.id] = self.assign_stack()
+
         return out_dict
 
     ############################################################################
@@ -268,8 +273,7 @@ class Compiler(compiler.Compiler):
                 match instr:
                     case Instr(name, args):
                         if reg in args:
-                            self.stack_size += 8
-                            targetStack = Deref('rbp', -self.stack_size)
+                            targetStack = self.assign_stack()
                             calleSavedPrelude.append(Instr("movq", [reg, targetStack]))
                             calleSavedPostLude.append(Instr("movq", [targetStack, reg]))
                             break

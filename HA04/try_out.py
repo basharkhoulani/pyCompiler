@@ -4,15 +4,12 @@ from compiler_register_allocator import Compiler
 compiler = Compiler()
 
 progA="""
-a = 1
-b = 2
-c = a + b + c
-c = a + b + c
-c = a + b + c
-c = a + b + c
-c = a + b + c
-c = a + b + c
-print_int(c + 4)
+a = input_int() + 2
+b = input_int() + 4
+c = input_int() + 8
+d = input_int() + 16
+e = input_int() + 32
+print(a + b + c + d + e)
 """
 
 progB="""
@@ -23,7 +20,7 @@ c = a + b + c
 print_int(c + 4)
 """
 
-ast = parse(progB)
+ast = parse(progA)
 print(dump(ast, indent=2))
 
 print("===============================")

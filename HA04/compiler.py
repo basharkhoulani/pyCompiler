@@ -146,6 +146,9 @@ class Compiler:
     ############################################################################
     # Assign Homes
     ############################################################################
+    def assign_stack(self):
+        self.stack_size += 8
+        return Deref('rbp', -self.stack_size)
 
     def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
         match a:
@@ -153,9 +156,7 @@ class Compiler:
                 if name in home:
                     return home[name]
                 else:
-                    self.stack_size += 8
-                    arg = Deref('rbp', -self.stack_size)
-                    home[name] = arg
+                    home[name] = self.assign_stack()
                     return arg
             case Immediate(n): 
                 return Immediate(n)
