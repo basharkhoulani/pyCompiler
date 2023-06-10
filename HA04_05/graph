@@ -1,0 +1,24 @@
+graph {
+	"-8(%rbp)"
+	rsp
+	rax
+	"-16(%rbp)"
+	"-24(%rbp)"
+	"-32(%rbp)"
+	"-40(%rbp)"
+	rdi
+	"-8(%rbp)" -- rsp [len=5.0]
+	"-24(%rbp)" -- "-8(%rbp)" [len=5.0]
+	rax -- "-8(%rbp)" [len=5.0]
+	"-24(%rbp)" -- rsp [len=5.0]
+	rax -- "-24(%rbp)" [len=5.0]
+	"-32(%rbp)" -- "-24(%rbp)" [len=5.0]
+	"-40(%rbp)" -- rsp [len=5.0]
+	"-16(%rbp)" -- "-8(%rbp)" [len=5.0]
+	rax -- rsp [len=5.0]
+	"-32(%rbp)" -- rsp [len=5.0]
+	rax -- "-16(%rbp)" [len=5.0]
+	rax -- "-32(%rbp)" [len=5.0]
+	"-16(%rbp)" -- rsp [len=5.0]
+	rdi -- rsp [len=5.0]
+}

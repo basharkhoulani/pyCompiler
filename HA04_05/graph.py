@@ -194,7 +194,7 @@ class UndirectedAdjList(DirectedAdjList):
       for u in self.vertices():
         dot.node(self.name(u))
       for e in self.edges():
-        dot.edge(self.name(e.source), self.name(e.target), len='1.5')
+        dot.edge(self.name(e.source), self.name(e.target), len='5.0')
       return dot
 
 
