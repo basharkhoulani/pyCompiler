@@ -166,6 +166,7 @@ class Compiler(compiler.Compiler):
                     break
         
         #process stack
+        highestIndex = 0
         stack = stack[::-1]
         for x in stack:
             sucessPaint = False
@@ -182,6 +183,7 @@ class Compiler(compiler.Compiler):
                 if not collision:
                     sucessPaint = True
                     reg_index_map[x] = try_index
+                    highestIndex = max(highestIndex, try_index)
                     break
             
             if not sucessPaint:
@@ -193,7 +195,13 @@ class Compiler(compiler.Compiler):
             out_dict[var.id] = self.index_to_reg(reg_index_map[var])
 
         for var in spilled:
-            out_dict[var.id] = self.assign_stack()
+
+            #do we have any registers left?
+            if highestIndex < self.reg_count:
+                out_dict[var.id] = self.index_to_reg(highestIndex)
+                highestIndex += 1
+            else:
+                out_dict[var.id] = self.assign_stack()
 
         return out_dict
 
