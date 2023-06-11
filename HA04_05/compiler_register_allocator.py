@@ -35,7 +35,7 @@ class Compiler(compiler.Compiler):
             case Instr('subq', [a, b]): result = {a, b}
             case Instr('negq', [a]):    result = {a}
             case Instr('pushq', [a]):   result = {a}
-            case Callq(_, n):           result = {Reg('rdi')} if n == 1 else set()
+            case Callq(_, n):           result = {Reg('rdi')}
             case _:                     result = set()
         return set([item for item in result if not isinstance(item, Immediate)])
 
@@ -57,11 +57,11 @@ class Compiler(compiler.Compiler):
         l_after: set[location] = set()
         l_before: set[location] = set()
         
-        for inst in reversed(p.body):           
-            l_after = l_before
-            l_before = (l_after - self.write_vars(inst)) | self.read_vars(inst)
-            
+        for inst in reversed(p.body):
             result[inst] = l_after
+                   
+            l_before = (l_after - self.write_vars(inst)) | self.read_vars(inst)
+            l_after = l_before
         
         ret_result: dict[instr, set[location]] = {}
         for (k,v) in reversed(result.items()):
@@ -87,14 +87,10 @@ class Compiler(compiler.Compiler):
                
         for (k,vs) in live_after.items():
             match k:
-                # handle rdi and rax with care
                 case Callq(_,_):
                     for v in vs:
-                        if v != Reg('rdi') and v != Reg('rax'):
-                            if not result.has_edge(Reg('rax'), v):
-                                result.add_edge(Reg('rax'), v)
-                            if not result.has_edge(Reg('rdi'), v):
-                                result.add_edge(Reg('rdi'), v)
+                        if v != Reg('rax') and not result.has_edge(Reg('rax'), v):
+                            result.add_edge(Reg('rax'), v)
                 case Instr('movq', [s, d]):
                     if not isinstance(s, Immediate):
                         result.add_vertex(s)
@@ -248,6 +244,23 @@ class Compiler(compiler.Compiler):
             if result is None:
                 # print("SPILLING: ", self.spill_vertex)
                 spill_list.append(self.spill_vertex)
+
+
+        # try spilled variables once again
+        for vertex in spill_list:
+            for color in variables:
+            # find available color
+                is_color_available = True
+                for neighbour in graph.adjacent(vertex):
+                    neighbour_color = result.get(neighbour)
+                    if neighbour_color is not None and neighbour_color == color:
+                        is_color_available = False
+                        break
+                
+                # if found, assign it
+                if is_color_available:
+                    result[vertex] = color
+                    break
         
         return result
 
@@ -318,10 +331,10 @@ class Compiler(compiler.Compiler):
                     result.extend(self.save(registers))
                     # do the call
                     result.append(inst)
-                    # restore afterwards
+                    # restore caller saved registers after the call
                     result.extend(self.restore(registers))
                 case other:
-                    result.append(other)                    
+                    result.append(other)               
         
         return X86Program(result)
 
