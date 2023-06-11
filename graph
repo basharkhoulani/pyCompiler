@@ -1,0 +1,19 @@
+graph {
+	rax
+	tmp_0
+	rdi
+	tmp_1
+	tmp_5
+	tmp_2
+	tmp_3
+	tmp_6
+	tmp_4
+	rdi -- tmp_0 [len=5.0]
+	tmp_5 -- tmp_1 [len=5.0]
+	rdi -- tmp_2 [len=5.0]
+	tmp_1 -- tmp_0 [len=5.0]
+	tmp_6 -- tmp_3 [len=5.0]
+	rax -- tmp_2 [len=5.0]
+	tmp_3 -- tmp_2 [len=5.0]
+	rax -- tmp_0 [len=5.0]
+}

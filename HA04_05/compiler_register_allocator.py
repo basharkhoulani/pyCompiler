@@ -1,13 +1,23 @@
+import random
 import compiler
 from graph import UndirectedAdjList
 from ast import *
 from x86_ast import *
 from os import sys
+import copy
 
 class Compiler(compiler.Compiler):
     
     def __init__(self):
-        self.registers = {Reg('rax'), Reg('rcx'), Reg('rdx'), Reg('rsi'), Reg('rdi'), Reg('r8'), Reg('r9'), Reg('r10'), Reg('r11')}
+        self.registers = {
+            # Reg('rdi'), Reg('rax'), 
+            Reg('rcx'), Reg('rdx'), Reg('rsi'), Reg('r8'), Reg('r9'), Reg('r10'), Reg('r11')
+        }
+        self.reduced_locations = 0
+        self.stack_size = 0
+        self.save_restore_registers = True
+        self.use_spilling = True
+        self.spill_method = self.spill_most_neighbours
     
 
     ###########################################################################
@@ -48,7 +58,7 @@ class Compiler(compiler.Compiler):
             l_after = l_before
             l_before = (l_after - self.write_vars(inst)) | self.read_vars(inst)
             
-            result[inst] = l_before
+            result[inst] = l_after
         
         ret_result: dict[instr, set[location]] = {}
         for (k,v) in reversed(result.items()):
@@ -73,16 +83,33 @@ class Compiler(compiler.Compiler):
                
         for (k,vs) in live_after.items():
             match k:
+                case Callq(_,_):
+                    for v in vs:
+                        if v != Reg('rdi') and v != Reg('rax'):
+                            if not result.has_edge(Reg('rax'), v):
+                                result.add_edge(Reg('rax'), v)
+                            if not result.has_edge(Reg('rdi'), v):
+                                result.add_edge(Reg('rdi'), v)
                 case Instr('movq', [s, d]):
+                    if not isinstance(s, Immediate):
+                        result.add_vertex(s)
+                    if not isinstance(d, Immediate):
+                        result.add_vertex(d)
                     for v in vs:
                         if v != s and v != d and not result.has_edge(d, v):
                             result.add_edge(d, v)
                 case Instr(_, [s, d]):
+                    if not isinstance(s, Immediate):
+                        result.add_vertex(s)
+                    if not isinstance(d, Immediate):
+                        result.add_vertex(d)
                     for v in self.write_vars(k):
                         for d in vs:
                             if v != d and not result.has_edge(d, v):
                                 result.add_edge(d, v)
                 case Instr(_, [d]):
+                    if not isinstance(d, Immediate):
+                        result.add_vertex(d)
                     for v in self.write_vars(k):
                         for d in vs:
                             if v != d and not result.has_edge(d, v):
@@ -100,16 +127,54 @@ class Compiler(compiler.Compiler):
                 return vertex
         return None
     
+    
+    def spill_sequential(self, graph: UndirectedAdjList) -> location:
+        for vertex in graph.vertices():
+            return vertex
+    
+    
+    def spill_least_neighbours(self, graph: UndirectedAdjList) -> location:
+        least_neighbours = self.spill_sequential(graph)
+        for vertex in graph.vertices():
+            if len(graph.adjacent(vertex)) < len(graph.adjacent(least_neighbours)):
+                least_neighbours = vertex
+        return least_neighbours
+    
+    
+    def spill_most_neighbours(self, graph: UndirectedAdjList) -> location:
+        most_neighbours = self.spill_sequential(graph)
+        for vertex in graph.vertices():
+            if len(graph.adjacent(vertex)) > len(graph.adjacent(most_neighbours)):
+                most_neighbours = vertex
+        return most_neighbours
+    
+    
+    def spill_random(self, graph: UndirectedAdjList) -> location:
+        index = random.randint(0, len(graph.vertices()) - 1)
+        for i, vertex in enumerate(graph.vertices()):
+            if i == index:
+                return vertex
+        return None
+    
     def color_graph_step(self, vertex: location, neighbours: dict[location, list[location]], graph: UndirectedAdjList,
-                         variables: set[Reg], stack: list[Reg], coloring: dict[Deref, Reg]) -> dict[Deref, Reg]:
+                         variables: set[Reg], stack: list[Reg], coloring: dict[Variable, Reg]) -> dict[Variable, Reg]:
         if vertex is None:
             return coloring
         
         stack.append(vertex)
         graph.remove_vertex(vertex)
         
-        result = self.color_graph_step(self.find_vertex(graph, len(variables)), neighbours, graph, variables, stack, coloring)
+        next_vertex = self.find_vertex(graph, len(variables))
         
+        if self.use_spilling and next_vertex is None and len(graph.vertices()) > 0:
+            # SPILL!
+            self.spill_vertex = self.spill_method(graph)
+            return None
+        
+        result = self.color_graph_step(next_vertex, neighbours, graph, variables, stack, coloring)
+        
+        if result is None:
+            return None
         
         if isinstance(vertex, Reg):
             return result
@@ -127,13 +192,30 @@ class Compiler(compiler.Compiler):
         
         return result
 
-    def color_graph(self, graph: UndirectedAdjList, variables: set[Reg]) -> dict[Deref, Reg]:
+    def color_graph(self, graph: UndirectedAdjList, variables: set[location]) -> dict[Variable, Reg]:
         stack: list[Reg] = list()
-        coloring: dict[Deref, Reg] = dict()
+        coloring: dict[Variable, Reg] = dict()
         neighbours: dict[location, list[location]] = dict()
-        for vertex in graph.vertices():
-            neighbours[vertex] = graph.adjacent(vertex)
-        return self.color_graph_step(self.find_vertex(graph, len(variables)), neighbours, graph, variables, stack, coloring)
+        spill_list = []
+        
+        result = None
+        
+        while result is None:     
+            graph_cpy = copy.deepcopy(graph)
+            for vertex in spill_list:
+                graph_cpy.remove_vertex(vertex)
+               
+            for vertex in graph_cpy.vertices():
+                neighbours[vertex] = graph_cpy.adjacent(vertex)
+                
+            result = self.color_graph_step(self.find_vertex(graph_cpy, len(variables)), neighbours, graph_cpy, variables, stack, coloring)
+            
+            if result is None:
+                print("SPILLING: ", self.spill_vertex)
+                spill_list.append(self.spill_vertex)
+        
+        return result
+
 
     ############################################################################
     # Assign Homes
@@ -143,7 +225,8 @@ class Compiler(compiler.Compiler):
         result: list[instr] = []
         live_after: dict[instr, set[location]] = self.uncover_live(p)
         interference: UndirectedAdjList = self.build_interference(p, live_after)
-        coloring: dict[Deref, Reg] = self.color_graph(interference, self.registers)
+        coloring: dict[Variable, Reg] = self.color_graph(interference, self.registers)
+        self.stack_size -= 8 * len(coloring)
         
         for inst in p.body:
             match inst:
@@ -154,22 +237,59 @@ class Compiler(compiler.Compiler):
                 case other:
                     result.append(other)
                     
-        return X86Program(result)
+        return compiler.Compiler.assign_homes(self, X86Program(result))
                     
 
     ###########################################################################
     # Patch Instructions
     ###########################################################################
-
+    
+    def save(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        for reg in registers:
+            if reg.id != 'rax' and reg.id != 'rdi':
+                result.append(Instr('movq', [reg, Deref('rbp', -(self.stack_before + 8 * index))]))
+            index += 1
+        return result
+    
+    def restore(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        for reg in registers:
+            if reg.id != 'rax' and reg.id != 'rdi':    
+                result.append(Instr('movq', [Deref('rbp', -(self.stack_before + 8 * index)), reg]))
+            index += 1
+        return result
+        
     def patch_instructions(self, p: X86Program) -> X86Program:
-        return p
+        p = compiler.Compiler.patch_instructions(self, p)
+        result: list[instr] = []
+        self.stack_before = self.stack_size
+        
+        live_after = self.uncover_live(p)
+        
+        for inst in p.body:
+            match inst:
+                case Callq(_, args) if self.save_restore_registers:
+                    registers = live_after.get(inst, [])
+                    result.extend(self.save(registers))
+                    result.append(inst)
+                    result.extend(self.restore(registers))
+                case other:
+                    result.append(other)                    
+        
+        return X86Program(result)
 
     ###########################################################################
     # Prelude & Conclusion
     ###########################################################################
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
-        pass
+        return compiler.Compiler.prelude_and_conclusion(self, p)
+                    
         
 ##################################################
 # Execute
