@@ -3,17 +3,17 @@ main:
     pushq %rbp
     movq %rsp, %rbp
     subq $16, %rsp
-    movq $10, %r10
-    movq %r10, %rdx
-    addq %r10, %rdx
-    movq %rdx, %r10
-    movq %r10, %rdx
-    subq %r10, %rdx
-    movq %r10, %rdi
-    movq %rdx, -8(%rbp)
-    callq print_int
-    movq -8(%rbp), %rdx
+    movq $10, %rdx
+    movq %rdx, %rsi
+    addq %rdx, %rsi
+    movq %rsi, %rdx
+    movq %rdx, %rsi
+    subq %rdx, %rsi
     movq %rdx, %rdi
+    movq %rsi, -8(%rbp)
+    callq print_int
+    movq -8(%rbp), %rsi
+    movq %rsi, %rdi
     callq print_int
     addq $16, %rsp
     popq %rbp

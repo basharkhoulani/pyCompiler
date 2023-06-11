@@ -3,14 +3,14 @@ main:
     pushq %rbp
     movq %rsp, %rbp
     subq $32, %rsp
-    movq $1, %rdx
-    movq %rdx, -8(%rbp)
+    movq $1, %rsi
+    movq %rsi, -16(%rbp)
     callq read_int
-    movq -8(%rbp), %rdx
-    movq %rax, %r10
-    addq %r10, %rdx
-    addq $10, %rdx
-    movq %rdx, %rdi
+    movq -16(%rbp), %rsi
+    movq %rax, %rdx
+    addq %rdx, %rsi
+    addq $10, %rsi
+    movq %rsi, %rdi
     callq print_int
     addq $32, %rsp
     popq %rbp
