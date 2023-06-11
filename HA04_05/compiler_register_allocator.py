@@ -35,7 +35,7 @@ class Compiler(compiler.Compiler):
             case Instr('subq', [a, b]): result = {a, b}
             case Instr('negq', [a]):    result = {a}
             case Instr('pushq', [a]):   result = {a}
-            case Callq(_, n):           result = {Reg('rdi')}
+            case Callq(_, n):           result = {Reg('rdi')} if n == 1 else {}
             case _:                     result = set()
         return set([item for item in result if not isinstance(item, Immediate)])
 
