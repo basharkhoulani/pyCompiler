@@ -10,16 +10,42 @@ class Compiler(compiler.Compiler):
     ###########################################################################
 
     def read_vars(self, i: instr) -> set[location]:
-        # YOUR CODE HERE
-        pass
+        match i :
+            case Instr(name, args):
+                if name =="moveq":
+                    return set([args[0]])
+
+                if len(args) == 2:
+                    return set([args[0], args[1]])
+                return set([args[0]])
+        return set()
 
     def write_vars(self, i: instr) -> set[location]:
-        # YOUR CODE HERE
-        pass
+        match i:
+            case Instr(name, args):
+                return set([args[-1]])
+        return set()
+
 
     def uncover_live(self, p: X86Program) -> dict[instr, set[location]]:
-        # YOUR CODE HERE
-        pass
+        out = {}
+
+        beforeKp1 = set()
+        for i in range(len(p.body) - 1, -1, -1):
+
+            for x in self.remove_immediate_and_regs(self.write_vars(p.body[i])):
+                beforeKp1.discard(x)
+
+            beforeKp1.update(self.remove_immediate_and_regs(self.read_vars(p.body[i])))
+            
+            if p.body[i] in out:
+                out[p.body[i]].update(beforeKp1)
+            else:
+                out[p.body[i]] = beforeKp1
+
+            beforeKp1 = beforeKp1.copy()
+
+        return out
 
     ############################################################################
     # Build Interference
@@ -27,8 +53,33 @@ class Compiler(compiler.Compiler):
 
     def build_interference(self, p: X86Program,
                            live_after: dict[instr, set[location]]) -> UndirectedAdjList:
-        # YOUR CODE HERE
-        pass
+        edges = []
+
+        for instr in p.body:
+            l_after = live_after[instr]
+            
+            match instr:
+                case Instr(name, args):
+                    if name=="movq":
+                        
+                        s = args[0]
+                        d = args[1]
+
+                        for v in l_after:
+                            if s != v and d != v:
+                                edges.append((d, v))
+
+                        continue
+                
+            
+            v_list = self.remove_immediate_and_regs( self.write_vars(instr) )
+            for v in v_list:
+                for d in l_after:
+                    if d != v:
+                        edges.append((v, d))
+        
+        return UndirectedAdjList(edges)
+
 
     ############################################################################
     # Allocate Registers
@@ -36,7 +87,7 @@ class Compiler(compiler.Compiler):
 
     def color_graph(self, graph: UndirectedAdjList,
                     variables: set[location]) -> dict[Variable, arg]:
-        # YOUR CODE HERE
+        
         pass
 
     ############################################################################
@@ -44,7 +95,7 @@ class Compiler(compiler.Compiler):
     ############################################################################
 
     def assign_homes(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
+        
         pass
 
     ###########################################################################
@@ -52,7 +103,7 @@ class Compiler(compiler.Compiler):
     ###########################################################################
 
     def patch_instructions(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
+        
         pass
 
     ###########################################################################
@@ -60,7 +111,7 @@ class Compiler(compiler.Compiler):
     ###########################################################################
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
+       
         pass
         
 ##################################################
