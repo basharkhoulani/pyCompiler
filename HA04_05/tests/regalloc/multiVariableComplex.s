@@ -4,51 +4,51 @@ main:
     movq %rsp, %rbp
     subq $48, %rsp
     callq read_int
-    movq %rax, %rcx
-    addq $2, %rcx
-    movq %rcx, %r10
-    movq %r10, -16(%rbp)
-    callq read_int
-    movq -16(%rbp), %r10
-    movq %rax, %rcx
-    addq $4, %rcx
-    movq %rcx, %rdx
-    movq %rdx, -8(%rbp)
-    movq %r10, -24(%rbp)
-    callq read_int
-    movq -8(%rbp), %rdx
-    movq -24(%rbp), %r10
-    movq %rax, %rcx
-    addq $8, %rcx
-    movq %rcx, %r9
-    movq %rdx, -8(%rbp)
-    movq %r10, -24(%rbp)
-    movq %r9, -32(%rbp)
-    callq read_int
-    movq -8(%rbp), %rdx
-    movq -24(%rbp), %r10
-    movq -32(%rbp), %r9
-    movq %rax, %rcx
-    addq $16, %rcx
-    movq %rcx, %r8
+    movq %rax, %r11
+    addq $2, %r11
+    movq %r11, %r8
     movq %r8, -16(%rbp)
-    movq %r9, -24(%rbp)
-    movq %rdx, -32(%rbp)
-    movq %r10, -40(%rbp)
     callq read_int
     movq -16(%rbp), %r8
-    movq -24(%rbp), %r9
-    movq -32(%rbp), %rdx
-    movq -40(%rbp), %r10
-    movq %rax, %rcx
-    addq $32, %rcx
-    movq %rcx, %rsi
-    movq %r10, %rcx
-    addq %rdx, %rcx
-    addq %r9, %rcx
-    addq %r8, %rcx
-    addq %rsi, %rcx
-    movq %rcx, %rdi
+    movq %rax, %r11
+    addq $4, %r11
+    movq %r11, %rcx
+    movq %r8, -16(%rbp)
+    movq %rcx, -24(%rbp)
+    callq read_int
+    movq -16(%rbp), %r8
+    movq -24(%rbp), %rcx
+    movq %rax, %r11
+    addq $8, %r11
+    movq %r11, %rdx
+    movq %r8, -16(%rbp)
+    movq %rdx, -24(%rbp)
+    movq %rcx, -32(%rbp)
+    callq read_int
+    movq -16(%rbp), %r8
+    movq -24(%rbp), %rdx
+    movq -32(%rbp), %rcx
+    movq %rax, %r11
+    addq $16, %r11
+    movq %r11, %rsi
+    movq %rdx, -16(%rbp)
+    movq %rcx, -24(%rbp)
+    movq %r8, -32(%rbp)
+    movq %rsi, -40(%rbp)
+    callq read_int
+    movq -16(%rbp), %rdx
+    movq -24(%rbp), %rcx
+    movq -32(%rbp), %r8
+    movq -40(%rbp), %rsi
+    movq %rax, %r11
+    addq $32, %r11
+    movq %r11, %r10
+    movq %r8, %r11
+    addq %rcx, %r11
+    addq %rdx, %r11
+    addq %rsi, %r11
+    addq %r10, %r11
+    movq %r11, %rdi
     callq print_int
     addq $48, %rsp
     popq %rbp

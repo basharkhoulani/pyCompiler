@@ -10,6 +10,9 @@ class Compiler(compiler.Compiler):
     
     def __init__(self):
         self.registers = {
+            # rdi and rax cause problems when used as temporary registers
+            # because they interfere with function calls and returns
+            
             # Reg('rdi'), Reg('rax'), 
             Reg('rcx'), Reg('rdx'), Reg('rsi'), Reg('r8'), Reg('r9'), Reg('r10'), Reg('r11')
         }
@@ -83,6 +86,7 @@ class Compiler(compiler.Compiler):
                
         for (k,vs) in live_after.items():
             match k:
+                # handle rdi and rax with care
                 case Callq(_,_):
                     for v in vs:
                         if v != Reg('rdi') and v != Reg('rax'):
@@ -98,9 +102,7 @@ class Compiler(compiler.Compiler):
                     for v in vs:
                         if v != s and v != d and not result.has_edge(d, v):
                             result.add_edge(d, v)
-                case Instr(_, [s, d]):
-                    if not isinstance(s, Immediate):
-                        result.add_vertex(s)
+                case Instr(_, [_, d]):
                     if not isinstance(d, Immediate):
                         result.add_vertex(d)
                     for v in self.write_vars(k):
@@ -166,26 +168,33 @@ class Compiler(compiler.Compiler):
         
         next_vertex = self.find_vertex(graph, len(variables))
         
+        # check for spilling
         if self.use_spilling and next_vertex is None and len(graph.vertices()) > 0:
-            # SPILL!
             self.spill_vertex = self.spill_method(graph)
             return None
         
+        # recursive call
         result = self.color_graph_step(next_vertex, neighbours, graph, variables, stack, coloring)
         
+        # check for spilling
         if result is None:
             return None
         
+        # don't assign registers to registers
         if isinstance(vertex, Reg):
             return result
         
+        # assign color to vertex
         for color in variables:
+            # find available color
             is_color_available = True
             for neighbour in neighbours[vertex]:
                 neighbour_color = result.get(neighbour)
                 if neighbour_color is not None and neighbour_color == color:
                     is_color_available = False
                     break
+            
+            # if found, assign it
             if is_color_available:
                 result[vertex] = color
                 break
@@ -198,20 +207,27 @@ class Compiler(compiler.Compiler):
         neighbours: dict[location, list[location]] = dict()
         spill_list = []
         
-        result = None
-        
+        # find a coloring pattern until no spilling is needed
+        result = None        
         while result is None:     
+            # don't change original graph here..
             graph_cpy = copy.deepcopy(graph)
+            
+            # remove spilled vertices
             for vertex in spill_list:
                 graph_cpy.remove_vertex(vertex)
                
+            # find neighbours because removing vertices removes edges
+            # so we don't lose track of neighbours
             for vertex in graph_cpy.vertices():
                 neighbours[vertex] = graph_cpy.adjacent(vertex)
-                
+            
+            # find coloring
             result = self.color_graph_step(self.find_vertex(graph_cpy, len(variables)), neighbours, graph_cpy, variables, stack, coloring)
             
+            # check for spilling
             if result is None:
-                print("SPILLING: ", self.spill_vertex)
+                # print("SPILLING: ", self.spill_vertex)
                 spill_list.append(self.spill_vertex)
         
         return result
@@ -248,7 +264,9 @@ class Compiler(compiler.Compiler):
         self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
         result: list[Instr] = []
         index = 1
+        # save all variables onto the stack
         for reg in registers:
+            # except for rax and rdi
             if reg.id != 'rax' and reg.id != 'rdi':
                 result.append(Instr('movq', [reg, Deref('rbp', -(self.stack_before + 8 * index))]))
             index += 1
@@ -258,7 +276,9 @@ class Compiler(compiler.Compiler):
         self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
         result: list[Instr] = []
         index = 1
+        # restore all variables from the stack
         for reg in registers:
+            # except for rax and rdi
             if reg.id != 'rax' and reg.id != 'rdi':    
                 result.append(Instr('movq', [Deref('rbp', -(self.stack_before + 8 * index)), reg]))
             index += 1
@@ -275,8 +295,11 @@ class Compiler(compiler.Compiler):
             match inst:
                 case Callq(_, args) if self.save_restore_registers:
                     registers = live_after.get(inst, [])
+                    # save caller saved registers onto the stack before the call
                     result.extend(self.save(registers))
+                    # do the call
                     result.append(inst)
+                    # restore afterwards
                     result.extend(self.restore(registers))
                 case other:
                     result.append(other)                    
