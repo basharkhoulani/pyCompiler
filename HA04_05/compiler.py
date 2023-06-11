@@ -197,9 +197,8 @@ class Compiler:
     def patch_instr(self, i: instr) -> list[instr]:
         result: list[instr] = []
         match i:
-            case Instr('movq', [Reg(a), Reg(b)]):
-                if a == b:
-                    return []
+            case Instr('movq', [a, b]) if a == b:
+                 return []
             case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
                 if inst == 'movq' and lhs == rhs and n == m:
                     return []
