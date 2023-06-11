@@ -3,34 +3,34 @@ main:
     pushq %rbp
     movq %rsp, %rbp
     subq $16, %rsp
-    movq $1, %r11
-    addq $1, %r11
-    movq %r11, %rsi
-    movq %rsi, %r11
-    addq $1, %r11
-    movq %r11, %rsi
-    movq $1, %r11
-    addq %rsi, %r11
-    movq %r11, %rsi
-    movq %rsi, %r11
-    addq %rsi, %r11
-    movq %r11, %rsi
-    movq %rsi, %rdi
-    movq %rsi, -8(%rbp)
+    movq $1, %rdx
+    addq $1, %rdx
+    movq %rdx, %rcx
+    movq %rcx, %rdx
+    addq $1, %rdx
+    movq %rdx, %rcx
+    movq $1, %rdx
+    addq %rcx, %rdx
+    movq %rdx, %rcx
+    movq %rcx, %rdx
+    addq %rcx, %rdx
+    movq %rdx, %rcx
+    movq %rcx, %rdi
+    movq %rcx, -8(%rbp)
     callq print_int
-    movq -8(%rbp), %rsi
-    movq $1, %r11
-    addq $1, %r11
-    movq %r11, %r10
-    movq %rsi, %r11
-    addq $1, %r11
-    movq %r11, %r10
-    movq $1, %r11
-    addq %r10, %r11
-    movq %r11, %r10
-    movq %rsi, %r11
-    addq %r10, %r11
-    movq %r11, %r10
+    movq -8(%rbp), %rcx
+    movq $1, %rdx
+    addq $1, %rdx
+    movq %rdx, %r10
+    movq %rcx, %rdx
+    addq $1, %rdx
+    movq %rdx, %r10
+    movq $1, %rdx
+    addq %r10, %rdx
+    movq %rdx, %r10
+    movq %rcx, %rdx
+    addq %r10, %rdx
+    movq %rdx, %r10
     movq %r10, %rdi
     callq print_int
     addq $16, %rsp

@@ -4,15 +4,15 @@ main:
     movq %rsp, %rbp
     subq $16, %rsp
     callq read_int
-    movq %rax, %r11
-    addq $42, %r11
-    addq $69, %r11
-    movq %r11, %r10
-    movq %r10, %r11
-    addq %r10, %r11
-    addq %r10, %r11
-    addq %r10, %r11
-    movq %r11, %rdi
+    movq %rax, %rdx
+    addq $42, %rdx
+    addq $69, %rdx
+    movq %rdx, %r10
+    movq %r10, %rdx
+    addq %r10, %rdx
+    addq %r10, %rdx
+    addq %r10, %rdx
+    movq %rdx, %rdi
     callq print_int
     addq $16, %rsp
     popq %rbp

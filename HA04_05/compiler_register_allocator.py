@@ -83,6 +83,7 @@ class Compiler(compiler.Compiler):
     def build_interference(self, p: X86Program,
                            live_after: dict[instr, set[location]]) -> UndirectedAdjList:
         result: UndirectedAdjList = UndirectedAdjList(vertex_label=self.lbl)
+        self.prgm = p
                
         for (k,vs) in live_after.items():
             match k:
@@ -128,6 +129,24 @@ class Compiler(compiler.Compiler):
             if len(graph.adjacent(vertex)) < var_count:
                 return vertex
         return None
+    
+    
+    def count_usages(self, vertex: location) -> int:
+        count = 0
+        for inst in self.prgm.body:
+            if vertex in self.read_vars(inst):
+                count += 1
+            if vertex in self.write_vars(inst):
+                count += 1
+        return count
+    
+    
+    def spill_least_used(self, graph: UndirectedAdjList) -> location:
+        least_used = self.spill_sequential(graph)
+        for vertex in graph.vertices():
+            if self.count_usages(vertex) < self.count_usages(least_used):
+                least_used = vertex
+        return least_used
     
     
     def spill_sequential(self, graph: UndirectedAdjList) -> location:
