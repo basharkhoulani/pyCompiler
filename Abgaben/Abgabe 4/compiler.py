@@ -1,5 +1,6 @@
 import ast
 from ast import *
+import subprocess
 from utils import *
 from x86_ast import *
 import os
@@ -7,7 +8,9 @@ import os
 Binding = tuple[Name, expr]
 Temporaries = list[Binding]
 
-get_fresh_tmp = lambda: generate_name('tmp')
+
+def get_fresh_tmp(): return generate_name('tmp')
+
 
 class Compiler:
     def __init__(self):
@@ -17,109 +20,61 @@ class Compiler:
     # Remove Complex Operands
     ############################################################################
 
-    def createHelperVariable(self) -> Name:
-        return Name(get_fresh_tmp())
-
-    def rco_exp(self, e: expr, isAtomic : bool) -> tuple[expr, Temporaries]:
-        
+    def rco_exp(self, e: expr, atomic: bool) -> tuple[expr, Temporaries]:
+        result: tuple[expr, Temporaries] = (None, [])
         match e:
-            case Constant():
-                return (e, [])
-            case Name():
-                return (e, [])
-            case Call(func, args):
-                helper_out = []
-                args_out = []
+            case Constant(n):
+                return (Constant(n), [])
+            case Name(name):
+                return (Name(name), [])
+            case UnaryOp(op, rhs):
+                rhs = self.rco_exp(rhs, True)
+                result = (UnaryOp(op, rhs[0]), rhs[1])
+            case BinOp(lhs, op, rhs):
+                nlhs = self.rco_exp(lhs, True)
+                nrhs = self.rco_exp(rhs, True)
+                result = (BinOp(nlhs[0], op, nrhs[0]), nlhs[1] + nrhs[1])
+            case Call(Name(func), []):
+                result = (Call(Name(func), []), [])
+            case _:
+                raise Exception("Unknown expression type: " + str(e))
 
-               
-                for a in args:
-                    targetExpr, helper = self.rco_exp(a, True)
-                    helper_out = helper_out + helper
-                    args_out.append(targetExpr)
+        if atomic:
+            tmp = get_fresh_tmp()
+            result = (Name(tmp), result[1] + [(Name(tmp), result[0])])
 
-               
-                op = Call(func, args_out)
-                if not isAtomic:
-                    return (op, helper_out)
-
-                helperVar = self.createHelperVariable()
-                helper_out.append((helperVar, op))
-                return (helperVar, helper_out)
-            case UnaryOp(op, operand):
-               
-                targetExpr, helpers = self.rco_exp(operand, True)
-
-               
-                op = UnaryOp(op, targetExpr)
-                if not isAtomic:
-                    return (op, helpers)
-
-                helperVar = self.createHelperVariable()
-                helpers.append((helperVar, op))
-                return (helperVar, helpers)
-            case BinOp(left, op, right):
-               
-                targetExprL, helpers = self.rco_exp(e.left, True)
-                targetExprR, helpersR = self.rco_exp(e.right, True)
-
-                
-                helpers = helpers + helpersR
-                op = BinOp(targetExprL, e.op, targetExprR)
-                if not isAtomic:
-                    return (op, helpers)
-
-                helperVar = self.createHelperVariable()
-                helpers.append((helperVar, op))
-                return (helperVar, helpers)
-
-        raise Exception("Unkown expression" + str(type(e)))
-
-
-    def convert_tupel(self, a : list[Tuple]) -> list[stmt]:
-        out = []
-
-        for target, expr in a:
-            out.append(Assign([target], expr))
-
-        return out
+        return result
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
-
+        schema: tuple[expr, Temporaries]
         match s:
-            case Expr(value):
-                targetExpr, help_instr = self.rco_exp(value, False)
-                out = self.convert_tupel(help_instr)
-                out.append(Expr(targetExpr))
-                return out
-            case Assign(targets, value):
-                
-                targetExpr, help_instr = self.rco_exp(value, False)
-                
-                
-                if targetExpr==None:
-                    raise Exception("rco_exp needs a valid result expr")
+            case Expr(Call(Name(name), [expr])): schema = self.rco_call(name, expr)
+            case Assign([Name(name)], expr): schema = self.rco_assign(name, expr)
+            case Expr(expr): schema = self.rco_exp(expr, False)
+            case _: raise Exception("Unknown statement type: " + str(s))
 
-                if len(targets) != 1 and type(targets[0]) == type(Name):
-                    raise Exception("only single var assignment supported")
+        result: list[stmt] = []
+        for temp in schema[1]:
+            result.append(Assign([temp[0]], temp[1]))
+        result.append(schema[0])
+        return result
 
-                
-                target = targets[0]
-                out = self.convert_tupel(help_instr)
-                out.append(Assign([target], targetExpr))
+    def rco_call(self, name: str, expr: expr) -> tuple[expr, Temporaries]:
+        schema = self.rco_exp(expr, True)
+        schema = (Expr(Call(Name(name), [schema[0]])), schema[1])
+        return schema
 
-                return out
-            
-            case _:
-                raise Exception("unkown ast stmt")
-    
+    def rco_assign(self, name: str, expr: expr) -> tuple[expr, Temporaries]:
+        schema = self.rco_exp(expr, False)
+        schema = (Assign([Name(name)], schema[0]), schema[1])
+        return schema
+
     def remove_complex_operands(self, p: Module) -> Module:
-        out = []
-        
-        for a in p.body:
-            out = out + self.rco_stmt(a)
-
-        return Module(out)
-
+        module = Module()
+        module.body = []
+        for stmt in p.body:
+            module.body.extend(self.rco_stmt(stmt))
+        return module
 
     ############################################################################
     # Select Instructions
@@ -127,67 +82,66 @@ class Compiler:
 
     def select_arg(self, e: expr) -> arg:
         match e:
-            case Name(value):
-                return Variable(value)
-            case Constant(value):
-                return Immediate(int(value))
+            case Constant(n): return Immediate(n)
+            case Name(name): return Variable(name)
+            case _: raise Exception("Unknown argument type: " + str(e))
 
     def select_stmt(self, s: stmt) -> list[instr]:
-        out = []
-        
         match s:
-            case Assign(targets, targetExpr):
-                opTarget = self.select_arg(targets[0])
+            case Expr(Call(Name('print'), [exp])): return self.select_call('print_int', exp)
+            case Expr(Call(Name(fn), [exp])): return self.select_call(fn, exp)
+            case Assign([Name(name)], exp): return self.select_assign(name, exp)
+            case _: raise Exception("Unknown statement type: " + str(s))
 
-                match targetExpr:
-                    case Name(value):
-                        out.append(Instr("movq", [self.select_arg(value), opTarget]))
-                    case Constant(value):
-                        out.append(Instr("movq", [self.select_arg(targetExpr), opTarget]))
-                    case UnaryOp(USub(), expr):
-                        out.append(Instr("movq", [self.select_arg(expr), opTarget]))
-                        out.append(Instr("negq", [opTarget]))
-                    case BinOp(left, Add(), right):
-                        if (right == targets[0]):
-                            helpVar = self.createHelperVariable()
-                            helpARG = self.select_arg(helpVar)
-                            out.append(Instr("movq", [self.select_arg(right), helpARG]))
-                            right = helpVar
+    def select_call(self, name: str, exp: expr) -> list[instr]:
+        result: list[instr] = [
+            Instr("movq", [self.select_arg(exp), Reg("rdi")]),
+            Callq(name, 1)
+        ]
+        return result
 
-                        out.append(Instr("movq", [self.select_arg(left), opTarget]))
-                        out.append(Instr("addq", [self.select_arg(right), opTarget]))
-                    case BinOp(left, Sub(), right):
-                        if (right == targets[0]):
-                            helpVar = self.createHelperVariable()
-                            helpARG = self.select_arg(helpVar)
-                            out.append(Instr("movq", [self.select_arg(right), helpARG]))
-                            right = helpVar
-
-                        out.append(Instr("movq", [self.select_arg(left), opTarget]))
-                        out.append(Instr("subq", [self.select_arg(right), opTarget]))
-                    case _:
-                        raise Exception("unkown expr in instruction mapping")
-
-
-            case Expr(expr):
-                match expr:
-                    case Call(func, args):
-                        if func.id != "print":
-                            raise Exception("only print is allowed for an expression")
-                        
-                        out.append(Instr("movq", [self.select_arg(args[0]), Reg("rdi")]))
-                        out.append(Callq("print_int", 1))
-        return out
-
+    def select_assign(self, name: str, exp: expr) -> list[instr]:
+        match exp:
+            case Constant(n):
+                return [Instr("movq", [Immediate(n), Variable(name)])]
+            case Name(name2):
+                return [Instr("movq", [Variable(name2), Variable(name)])]
+            case UnaryOp(USub(), Constant(n)):
+                return [
+                    Instr("movq", [self.select_arg(Constant(n)), Variable(name)]),
+                    Instr("negq", [Variable(name)])
+                ]
+            case UnaryOp(USub(), rhs):
+                return [
+                    Instr("movq", [self.select_arg(rhs), Variable(name)]),
+                    Instr("negq", [Variable(name)])
+                ]
+            case Call(Name('input_int'), []):
+                return [Callq('read_int', 0), Instr("movq", [Reg("rax"), Variable(name)])]
+            case Call(Name(fn), []):
+                return [Callq(fn, 0), Instr("movq", [Reg("rax"), Variable(name)])]
+            case BinOp(lhs, Add(), rhs):
+                tmp = get_fresh_tmp()
+                return [
+                    Instr("movq", [self.select_arg(lhs), Variable(tmp)]),
+                    Instr("addq", [self.select_arg(rhs), Variable(tmp)]),
+                    Instr("movq", [Variable(tmp), Variable(name)])
+                ]
+            case BinOp(lhs, Sub(), rhs):
+                tmp = get_fresh_tmp()
+                return [
+                    Instr("movq", [self.select_arg(lhs), Variable(tmp)]),
+                    Instr("subq", [self.select_arg(rhs), Variable(tmp)]),
+                    Instr("movq", [Variable(tmp), Variable(name)])
+                ]
+            case _:
+                raise Exception("Unknown expression type: " + str(exp))
 
     def select_instructions(self, p: Module) -> X86Program:
-        out = []
-
-        for i in p.body:
-            
-            out = out + self.select_stmt(i)
-
-        return X86Program(out)
+        list: list[instr] = []
+        for stmt in p.body:
+            list.extend(self.select_stmt(stmt))
+        return X86Program(list)
 
     ############################################################################
     # Assign Homes
@@ -195,93 +149,75 @@ class Compiler:
 
     def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
         match a:
-            case Variable(id):
-                
-                if a in home:
-                    return home[a]
-                
-                
-                offset = -(self.stack_size + 8)
-                self.stack_size = self.stack_size + 8
-                out = Deref("rbp", offset)
-                home[a] = out
-                return out
+            case Variable(name):
+                if name in home:
+                    return home[name]
+                else:
+                    self.stack_size += 8
+                    arg = Deref('rbp', -self.stack_size)
+                    home[name] = arg
+                    return arg
+            case Immediate(n): 
+                return Immediate(n)
+            case Reg(name): 
+                return Reg(name)
 
-        return a
+        raise Exception("Unknown argument type: " + str(a))
 
-
-    
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
         match i:
-            case Instr(name, args):
-                args_out = []
-
-                for a in args:
-                    args_out.append(self.assign_homes_arg(a, home))
-
-                return Instr(name, args_out)
-
-        return i
-
+            case Instr(inst, [lhs, rhs]):
+                return Instr(inst, [
+                    self.assign_homes_arg(lhs, home), 
+                    self.assign_homes_arg(rhs, home)
+                ])
+            case Instr(inst, [arg]):
+                return Instr(inst, [
+                    self.assign_homes_arg(arg, home)
+                ])
+            case Callq(name, n):
+                return Callq(name, n)
+            case _:
+                raise Exception("Unknown instruction type: " + str(i))
 
     def assign_homes_instrs(self, s: list[instr],
                             home: dict[Variable, arg]) -> list[instr]:
-        out = []
-
-        for i in s:
-            out.append(self.assign_homes_instr(i, home))
-
-        return out
+        return [self.assign_homes_instr(i, home) for i in s]
 
     def assign_homes(self, p: X86Program) -> X86Program:
-        out = []
-        home = {}
-        out = self.assign_homes_instrs(p.body, home)
-        return X86Program(out)
-    
-     
+        self.stack_size = 0
+        p.body = self.assign_homes_instrs(p.body, {})
+        return p
 
     ############################################################################
     # Patch Instructions
     ############################################################################
 
     def patch_instr(self, i: instr) -> list[instr]:
+        result: list[instr] = []
         match i:
-            case Instr(name, args):
-
-                
-                if len(args)< 2:
-                    return [i]
-                
-                if len(args) != 2:
-                    raise Exception("instructions with more than two arguments are not supported")
-
-                
-                match args[0]:
-                    case Deref(reg, offset):
-                        helpReg = Reg("rax")
-                        return [Instr("movq", [args[0], helpReg]), Instr(name, [helpReg, args[1]])]
-                    case _:
-                        return [i]
-
-            case Callq(func, count):
-                return [i]
+            case Instr('movq', [Reg(a), Reg(b)]):
+                if a == b:
+                    return []
+            case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
+                if inst == 'movq' and lhs == rhs and n == m:
+                    return []
+                result.append(Instr('movq', [Deref(lhs, n), Reg('rax')]))
+                result.append(Instr(inst, [Reg('rax'), Deref(rhs, m)]))
+            case i:
+                result.append(i)
+        return result
 
     def patch_instrs(self, s: list[instr]) -> list[instr]:
-        out = []
-
-        for instr in s:
-            out = out + self.patch_instr(instr)
-
-        return out
-
+        result: list[instr] = []
+        for i in s:
+            result.extend(self.patch_instr(i))
+        return result
 
     def patch_instructions(self, p: X86Program) -> X86Program:
-        out = []
-        out = self.patch_instrs(p.body)
-        return X86Program(out)
-
+        p.body = self.patch_instrs(p.body)
+        return p
 
     ############################################################################
     # Prelude & Conclusion
@@ -291,16 +227,19 @@ class Compiler:
         new_body = []
         adjust_stack_size = self.stack_size if self.stack_size % 16 == 0 else self.stack_size + 8
 
-        prelude = [Instr("pushq", [Reg("rbp")]), Instr("movq", [Reg("rsp"), Reg("rbp")])]
+        prelude = [Instr("pushq", [Reg("rbp")]), Instr(
+           "movq", [Reg("rsp"), Reg("rbp")])]
         if adjust_stack_size > 0:
-            prelude.append(Instr('subq', [Immediate(adjust_stack_size), Reg('rsp')]))
+            prelude.append(
+               Instr('subq', [Immediate(adjust_stack_size), Reg('rsp')]))
 
         new_body.extend(prelude)
         new_body.extend(p.body)
 
         conclusion = [Instr('popq', [Reg('rbp')]), Instr('retq', [])]
         if adjust_stack_size > 0:
-            conclusion.insert(0, Instr('addq', [Immediate(adjust_stack_size), Reg('rsp')]))
+            conclusion.insert(
+               0, Instr('addq', [Immediate(adjust_stack_size), Reg('rsp')]))
 
         new_body.extend(conclusion)
         return X86Program(new_body)
@@ -345,6 +284,7 @@ class Compiler:
 # Execute
 ##################################################
 
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('Usage: python compiler.py <source filename>')
@@ -362,6 +302,7 @@ if __name__ == '__main__':
                     output_file.write(str(x86_program))
 
             except:
-                print('Error during compilation! **************************************************')
+                print(
+                   'Error during compilation! **************************************************')
                 import traceback
                 traceback.print_exception(*sys.exc_info())
