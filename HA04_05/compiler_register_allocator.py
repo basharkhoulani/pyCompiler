@@ -299,7 +299,7 @@ class Compiler(compiler.Compiler):
         # save all variables onto the stack
         for reg in registers:
             # except for rax and rdi
-            if reg.id != 'rax' and reg.id != 'rdi':
+            if isinstance(reg, Reg) and reg.id != 'rax' and reg.id != 'rdi':
                 result.append(Instr('movq', [reg, Deref('rbp', -(self.stack_before + 8 * index))]))
             index += 1
         return result
@@ -311,7 +311,7 @@ class Compiler(compiler.Compiler):
         # restore all variables from the stack
         for reg in registers:
             # except for rax and rdi
-            if reg.id != 'rax' and reg.id != 'rdi':    
+            if isinstance(reg, Reg) and reg.id != 'rax' and reg.id != 'rdi':    
                 result.append(Instr('movq', [Deref('rbp', -(self.stack_before + 8 * index)), reg]))
             index += 1
         return result
