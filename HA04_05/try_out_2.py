@@ -56,7 +56,7 @@ print("\n\n=== BUILD_INTERFERENCE ===")
 
 interference_graph = compiler_b.build_interference(ast_after_select_instrs, uncover_life_dict)
 graph: Graph = interference_graph.show()
-##graph.render("graph", format="png", view=True)
+graph.render("graph", format="png", view=True)
 
 print("\n\n=== COLOR_GRAPH ===")
 begin = time()
