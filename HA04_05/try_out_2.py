@@ -9,23 +9,26 @@ from time import time
 compiler_b = CompilerB()
 
 prog="""
-x = input_int()
-y = input_int()
-
-result_add = x + y
-result_sub = x - y
-
-print(result_add)
-print(result_sub)
-
-print(x)
-print(y)
-
-print(result_add)
-print(result_sub)
-
-print(x)
-print(y)
+a = 1
+b = 1
+c = 1
+d = 1
+e = 1
+f = 1
+g = 1
+h = 1
+i = 1
+j = 1
+k = 1
+l = 1
+m = 1
+n = 1
+o = 1
+p = 1
+q = 1
+r = 1
+print(a + b + c)
+print(a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r)
 """
 
 ast = parse(prog)
@@ -53,7 +56,7 @@ print("\n\n=== BUILD_INTERFERENCE ===")
 
 interference_graph = compiler_b.build_interference(ast_after_select_instrs, uncover_life_dict)
 graph: Graph = interference_graph.show()
-graph.render("graph", format="png", view=True)
+##graph.render("graph", format="png", view=True)
 
 print("\n\n=== COLOR_GRAPH ===")
 begin = time()
