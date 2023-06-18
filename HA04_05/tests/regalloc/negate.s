@@ -4,11 +4,11 @@ main:
     movq %rsp, %rbp
     subq $16, %rsp
     callq read_int
-    movq %rax, %rdx
-    negq %rdx
-    negq %rdx
-    negq %rdx
-    movq %rdx, %rdi
+    movq %rax, %r9
+    negq %r9
+    negq %r9
+    negq %r9
+    movq %r9, %rdi
     callq print_int
     addq $16, %rsp
     popq %rbp
