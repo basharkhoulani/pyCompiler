@@ -21,16 +21,47 @@ class Compiler(compiler.Compiler):
     ###########################################################################
 
     def shrink_exp(self, e: expr) -> expr:
-        # YOUR CODE HERE
-        pass
+        match e:
+            case BoolOp(And(), [a_expr, b_expr]):
+                return IfExp(a_expr, b_expr, False)
+            case BoolOp(Or(), [a_expr, b_expr]):
+                return IfExp(a_expr, True, b_expr)
+            
+            case Call(Name(name), [expression]):
+                return Expr(Call(Name(name), [self.shrink_exp(expression)]))
+            
+            case _:
+                return e
 
     def shrink_stmt(self, s: stmt) -> stmt:
-        # YOUR CODE HERE
-        pass
+        match s:
+
+            case Assign([Name(name)], expression):
+                return Assign([Name(name)], self.shrink_exp(expression))
+            
+            case If(test, body, anso):
+
+                body_out = []
+                ans_out = []
+
+                for instr in body:
+                    body_out.append(self.shrink_stmt(instr))
+                for instr in anso:
+                    ans_out.append(self.shrink_stmt(instr))
+
+                return If(self.shrink_exp(test), body_out, ans_out)
+
+            case Expr(expression):
+                return self.shrink_exp(expression)
+            case _: raise Exception("Unknown statement type: " + str(s))
 
     def shrink(self, p: Module) -> Module:
-        # YOUR CODE HERE
-        pass
+        o = []
+
+        for instr in p.body:
+            o.append(self.shrink_stmt(instr))
+
+        return Module(o)
 
     ############################################################################
     # Remove Complex Operands
