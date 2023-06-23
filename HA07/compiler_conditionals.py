@@ -21,16 +21,37 @@ class Compiler(compiler.Compiler):
     ###########################################################################
 
     def shrink_exp(self, e: expr) -> expr:
-        # YOUR CODE HERE
-        pass
+        match e:
+            case BoolOp(And(), exp):
+                return IfExp(exp[0], exp[1], Constant(False))
+            case BoolOp(Or(), exp):
+                return IfExp(exp[0], Constant(True), exp[1])
+            case _:
+                return e
 
     def shrink_stmt(self, s: stmt) -> stmt:
-        # YOUR CODE HERE
-        pass
+        match s:
+            case If(test, body, orelse):
+                exp = self.shrink_exp(test)
+                body = [self.shrink_stmt(s) for s in body]
+                orelse = [self.shrink_stmt(s) for s in orelse]
+                return If(exp, body, orelse)
+            case Assign([lhs], rhs):
+                return Assign([lhs], self.shrink_exp(rhs))
+            case Expr(Call(Name('print'), [arg])):
+                return Expr(Call(Name('print'), [self.shrink_exp(arg)]))
+            case Expr(value):
+                return Expr(self.shrink_exp(value))
+            case _:
+                raise Exception(f'Unexpected statement: {s}')
 
     def shrink(self, p: Module) -> Module:
-        # YOUR CODE HERE
-        pass
+        result = []
+        match p:
+            case Module(body):
+                for s in body:
+                    result.append(self.shrink_stmt(s))
+        return Module(result)
 
     ############################################################################
     # Remove Complex Operands
@@ -38,15 +59,62 @@ class Compiler(compiler.Compiler):
 
     def rco_exp(self, e: expr, need_atomic: bool) -> tuple[expr, compiler.Temporaries]:
         match e:
-            # YOUR CODE HERE
+            case IfExp(test, body, orelse):
+                test_exp, test_temps = self.rco_exp(test, False)
+                body_exp, body_temps = self.rco_exp(body, False)
+                orelse_exp, orelse_temps = self.rco_exp(orelse, False)
+
+                begin_body = Begin([Assign([name], exp) for name, exp in body_temps], body_exp)
+                begin_orelse = Begin([Assign([name], exp) for name, exp in orelse_temps], orelse_exp)
+                end = IfExp(test_exp, begin_body, begin_orelse)
+                if need_atomic:
+                    temp = Name(generate_name('tmp'))
+                    test_temps.append((temp, end))
+                    return temp, test_temps
+                else:
+                    return end, test_temps
+            case Compare(left, [cmp], [right]):
+                left_exp, left_temps = self.rco_exp(left, True)
+                right_exp, right_temps = self.rco_exp(right, True)
+                left_temps += right_temps
+                if need_atomic:
+                    temp = Name(generate_name('tmp'))
+                    left_temps.append((temp, Compare(left_exp, [cmp], [right_exp])))
+                    return temp, left_temps
+                else:
+                    return Compare(left_exp, [cmp], [right_exp]), left_temps
+            case Begin(body, result):
+                result_exp, result_temps = self.rco_exp(result, need_atomic)
+                body_stmts = []
+                for s in body:
+                    body_stmts += self.rco_stmt(s)
+                return Begin(body_stmts, result_exp), result_temps
             case _:
                 return super().rco_exp(e, need_atomic)
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
         match s:
-            # YOUR CODE HERE
+            case If(test, body, orelse):
+                result = []
+                test_exp, test_temps = self.rco_exp(test, False)
+                body_stmts = [self.rco_stmt(s) for s in body]
+                orelse_stmts = [self.rco_stmt(s) for s in orelse]
+                for tmp, exp in test_temps:
+                    result.append(Assign([tmp], exp))
+                result.append(If(test_exp, body_stmts, orelse_stmts))
+                return result
             case _:
                 return super().rco_stmt(s)
+
+    def remove_complex_operands(self, p: Module) -> Module:
+        result = []
+        match p:
+            case Module(body):
+                for s in body:
+                    result += self.rco_stmt(s)
+        print(result)
+        return super().remove_complex_operands(Module(result))
+
 
     ############################################################################
     # Explicate Control
@@ -208,10 +276,7 @@ class Compiler(compiler.Compiler):
 ##################################################
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Usage: python compiler.py <source filename>')
-    else:
-        file_name = sys.argv[1]
+        file_name = "test.py"
         with open(file_name) as f:
             print(f'Compiling program {file_name}...')
 

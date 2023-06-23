@@ -1,3 +1,1 @@
-x = 1
-x = x
-print(x)
+x = 42 + input_int() if True or False else 3
