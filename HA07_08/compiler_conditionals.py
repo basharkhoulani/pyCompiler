@@ -1,4 +1,5 @@
 #import compiler_register_allocator as compiler
+from compiler import get_fresh_tmp
 import compiler
 from graph import UndirectedAdjList
 from ast import *
@@ -23,10 +24,18 @@ class Compiler(compiler.Compiler):
     def shrink_exp(self, e: expr) -> expr:
         match e:
             case BoolOp(And(), [a_expr, b_expr]):
-                return IfExp(a_expr, b_expr, False)
+                return IfExp(self.shrink_exp(a_expr), b_expr, Constant(False))
             case BoolOp(Or(), [a_expr, b_expr]):
-                return IfExp(a_expr, True, b_expr)
-            
+                return IfExp(self.shrink_exp(a_expr), Constant(True), b_expr)
+
+            case BinOp(left, op, right):
+                return BinOp(self.shrink_exp(left), op, self.shrink_exp(right))
+            case UnaryOp(op, right):
+                return UnaryOp(op, self.shrink_exp(right))
+
+            case IfExp(con, body, els):
+                return IfExp(self.shrink_exp(con), self.shrink_exp(body), self.shrink_exp(els))
+
             case Call(Name(name), [expression]):
                 return Expr(Call(Name(name), [self.shrink_exp(expression)]))
             
@@ -35,12 +44,10 @@ class Compiler(compiler.Compiler):
 
     def shrink_stmt(self, s: stmt) -> stmt:
         match s:
-
             case Assign([Name(name)], expression):
                 return Assign([Name(name)], self.shrink_exp(expression))
             
             case If(test, body, anso):
-
                 body_out = []
                 ans_out = []
 
@@ -69,13 +76,71 @@ class Compiler(compiler.Compiler):
 
     def rco_exp(self, e: expr, need_atomic: bool) -> tuple[expr, compiler.Temporaries]:
         match e:
-            # YOUR CODE HERE
+            case Compare(left, [op], [right]):
+                nlhs = self.rco_exp(left, True)
+                nrhs = self.rco_exp(right, True)
+
+                result = (Compare(nlhs[0], [op], [nrhs[0]]), nlhs[1] + nrhs[1])
+            case UnaryOp(Not(), operand):
+                nlhs = self.rco_exp(operand, True)
+                result = (UnaryOp(Not(), nlhs[0]), nlhs[1])
+            case IfExp(cond, body, anso):
+
+                con = []
+                cons = self.rco_exp(cond, False)
+                for x in cons[1]:
+                    con.append(Assign([x[0]], x[1]))
+
+                lhs = []
+                nlhs = self.rco_exp(body, False)
+                for x in nlhs[1]:
+                    lhs.append(Assign([x[0]], x[1]))
+
+                rhs = []
+                nrhs = self.rco_exp(anso, False)
+                for x in nrhs[1]:
+                    rhs.append(Assign([x[0]], x[1]))
+
+                result = (IfExp(Begin(con, cons[0]), Begin(lhs, nlhs[0]), Begin(rhs, nrhs[0])), [])
+
+            case Expr(Call(Name(func), [v])):
+                result = self.rco_call(func, v)
             case _:
                 return super().rco_exp(e, need_atomic)
+            
+            
+        if need_atomic:
+            tmp = get_fresh_tmp()
+            result = (Name(tmp), result[1] + [(Name(tmp), result[0])])
+        
+        return result
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
         match s:
-            # YOUR CODE HERE
+            case If(test, body, anso):
+                testExpr = self.rco_exp(test, False)
+
+                body_out = []
+                ans_out = []
+
+                for instr in body:
+                    body_out = body_out + self.rco_stmt(instr)
+                for instr in anso:
+                    ans_out = ans_out + self.rco_stmt(instr)
+
+                result: list[stmt] = []
+                for temp in testExpr[1]:
+                    result.append(Assign([temp[0]], temp[1]))
+                result.append(If(testExpr[0], body_out, ans_out))
+                return result
+            case IfExp(test, body, elseBody):
+                expr = self.rco_exp(IfExp(test, body, elseBody), False)
+
+                result: list[stmt] = []
+                for temp in expr[1]:
+                    result.append(Assign([temp[0]], temp[1]))
+                result.append(expr[0])
+                return result
             case _:
                 return super().rco_stmt(s)
 
@@ -86,26 +151,33 @@ class Compiler(compiler.Compiler):
     def explicate_effect(self, e, cont, basic_blocks) -> list[stmt]:
         match e:
             case IfExp(test, body, orelse):
-                # YOUR CODE HERE
-                pass
+                goto_cont = create_block(cont, basic_blocks)
+                return self.explicate_pred(test, [Expr(body)] + goto_cont, [Expr(orelse)] + goto_cont)
             case Call(func, args):
-                # YOUR CODE HERE
-                pass
+                return [Call(func, args)] + cont
             case Begin(body, result):
-                # YOUR CODE HERE
-                pass
+                    helpInstr = []
+                    for x in body:
+                        helpInstr = helpInstr + self.explicate_stmt(x)
+                    
+                    return helpInstr + self.explicate_effect(result, cont, basic_blocks)
             case _:
-                # YOUR CODE HERE
-                pass
+                return [Expr(e)] + cont
 
     def explicate_assign(self, rhs, lhs, cont, basic_blocks) -> list[stmt]:
         match rhs:
             case IfExp(test, body, orelse):
-                # YOUR CODE HERE
-                pass
+                goto_cont = create_block(cont, basic_blocks)
+                return self.explicate_pred(test, 
+                                           self.explicate_assign(body, lhs, [], basic_blocks) + goto_cont
+                                           ,self.explicate_assign(orelse, lhs, [], basic_blocks) + goto_cont,
+                                             basic_blocks)
             case Begin(body, result):
-                # YOUR CODE HERE
-                pass
+                helpInstr = []
+                for x in body:
+                    helpInstr = helpInstr + self.explicate_stmt(x)
+                
+                return helpInstr + self.explicate_assign(result, lhs, cont, basic_blocks)
             case _:
                 return [Assign([lhs], rhs)] + cont
 
@@ -120,14 +192,17 @@ class Compiler(compiler.Compiler):
             case Constant(False):
                 return els
             case UnaryOp(Not(), operand):
-                # YOUR CODE HERE
-                pass
+                return self.explicate_pred(operand, els, thn, basic_blocks)
             case IfExp(test, body, orelse):
-                # YOUR CODE HERE
-                pass
+                goto_thn = create_block(thn, basic_blocks)
+                goto_els = create_block(els, basic_blocks)
+
+                bodyTrans = self.explicate_pred(body, goto_thn, goto_els, basic_blocks)
+                orelseTrans = self.explicate_pred(orelse, goto_thn, goto_els, basic_blocks)
+
+                return self.explicate_pred(test, bodyTrans, orelseTrans, basic_blocks)
             case Begin(body, result):
-                # YOUR CODE HERE
-                pass
+                return body + self.explicate_pred(result, thn, els, basic_blocks)
             case _:
                 return [If(Compare(cnd, [Eq()], [Constant(False)]),
                         create_block(els, basic_blocks),
@@ -139,9 +214,23 @@ class Compiler(compiler.Compiler):
                 return self.explicate_assign(rhs, lhs, cont, basic_blocks)
             case Expr(value):
                 return self.explicate_effect(value, cont, basic_blocks)
+            case IfExp(test, body, orelse):
+                goto_cont = create_block(cont, basic_blocks)
+                return self.explicate_pred(test, self.explicate_effect(body, [], basic_blocks) + goto_cont, self.explicate_effect(orelse, [], basic_blocks) + goto_cont, basic_blocks)
             case If(test, body, orelse):
-                # YOUR CODE HERE
-                pass
+                goto_cont = create_block(cont, basic_blocks)
+                return self.explicate_pred(test, self.explicate_stmts(body, [], basic_blocks) + goto_cont, self.explicate_stmts(orelse, [], basic_blocks) + goto_cont, basic_blocks)
+            case _:
+                raise Exception("unkown statement")
+            
+    def explicate_stmts(self, s: list(stmt), cont, basic_blocks) -> list[stmt]:
+        out = cont
+        for x in s:
+            out = out + self.explicate_stmt(x, out, basic_blocks)
+
+        return out
+
+
 
     def explicate_control(self, p: Module):
         match p:
