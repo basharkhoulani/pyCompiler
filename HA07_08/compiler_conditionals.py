@@ -156,11 +156,8 @@ class Compiler(compiler.Compiler):
             case Call(func, args):
                 return [Call(func, args)] + cont
             case Begin(body, result):
-                    helpInstr = []
-                    for x in body:
-                        helpInstr = helpInstr + self.explicate_stmt(x)
-                    
-                    return helpInstr + self.explicate_effect(result, cont, basic_blocks)
+                self.explicate_stmt_list(body, cont, basic_blocks)
+                return self.explicate_effect(result, cont, basic_blocks)
             case _:
                 return [Expr(e)] + cont
 
@@ -173,11 +170,8 @@ class Compiler(compiler.Compiler):
                                            ,self.explicate_assign(orelse, lhs, [], basic_blocks) + goto_cont,
                                              basic_blocks)
             case Begin(body, result):
-                helpInstr = []
-                for x in body:
-                    helpInstr = helpInstr + self.explicate_stmt(x)
-                
-                return helpInstr + self.explicate_assign(result, lhs, cont, basic_blocks)
+                self.explicate_stmt_list(body, cont, basic_blocks)
+                return self.explicate_assign(result, lhs, cont, basic_blocks)
             case _:
                 return [Assign([lhs], rhs)] + cont
 
@@ -216,17 +210,17 @@ class Compiler(compiler.Compiler):
                 return self.explicate_effect(value, cont, basic_blocks)
             case IfExp(test, body, orelse):
                 goto_cont = create_block(cont, basic_blocks)
-                return self.explicate_pred(test, self.explicate_effect(body, [], basic_blocks) + goto_cont, self.explicate_effect(orelse, [], basic_blocks) + goto_cont, basic_blocks)
+                return self.explicate_pred(test, self.explicate_effect(body, goto_cont, basic_blocks), self.explicate_effect(orelse, goto_cont, basic_blocks), basic_blocks)
             case If(test, body, orelse):
                 goto_cont = create_block(cont, basic_blocks)
-                return self.explicate_pred(test, self.explicate_stmts(body, [], basic_blocks) + goto_cont, self.explicate_stmts(orelse, [], basic_blocks) + goto_cont, basic_blocks)
+                return self.explicate_pred(test, self.explicate_stmt_list(body, goto_cont, basic_blocks), self.explicate_stmt_list(orelse, goto_cont, basic_blocks), basic_blocks)
             case _:
                 raise Exception("unkown statement")
             
-    def explicate_stmts(self, s: list(stmt), cont, basic_blocks) -> list[stmt]:
+    def explicate_stmt_list(self, s, cont, basic_blocks) -> list[stmt]:
         out = cont
-        for x in s:
-            out = out + self.explicate_stmt(x, out, basic_blocks)
+        for x in reversed(s):
+            out = self.explicate_stmt(x, out, basic_blocks)
 
         return out
 
