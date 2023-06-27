@@ -1,13 +1,26 @@
 from ast import parse,dump
-from compiler import Compiler
+from compiler_register_allocator import Compiler
 
 compiler = Compiler()
 
-prog="""
-print_int(0)
+progA="""
+a = input_int() + 2
+b = input_int() + 4
+c = input_int() + 8
+d = input_int() + 16
+e = input_int() + 32
+print(a + b + c + d + e)
 """
 
-ast = parse(prog)
+progB="""
+a = 1
+b = 2
+c = 3
+c = a + b + c
+print_int(c + 4)
+"""
+
+ast = parse(progA)
 print(dump(ast, indent=2))
 
 print("===============================")
@@ -30,4 +43,7 @@ print("===============================")
 ast_after_patch_instructions = compiler.patch_instructions(ast_after_assign_registers)
 print(ast_after_patch_instructions)
 
+print("===============================")
 
+ast_after_patch_instructions = compiler.prelude_and_conclusion(ast_after_assign_registers)
+print(ast_after_patch_instructions)
