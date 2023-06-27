@@ -6,22 +6,21 @@ from x86_ast import *
 
 compiler = CompilerC()
 progA="""
-a = 0 if True else 1
 i = input_int()
 j = input_int()
 if i == 0 and j != 1:
-    print(1)
+    print(2+4) if input_int() == 2 else print(1+8)
 else:
-    print(2)
+    print(2+24)
 print(0)
 """
 progB="""
 i = input_int()
 j = input_int()
 if i == 0 and j != 1:
-    print(2*4) if input_int() == 2 else print(1+8)
+    print(2+4) if input_int() == 2 else print(1+8)
 else:
-    print(2*24)
+    print(2+24)
 print(0)
 """
 

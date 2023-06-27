@@ -23,6 +23,9 @@ class Compiler(compiler.Compiler):
 
     def shrink_exp(self, e: expr) -> expr:
         match e:
+            case Compare(left, [op], [right]):
+                return Compare(self.shrink_exp(left), [op], [self.shrink_exp(right)])
+            
             case BoolOp(And(), [a_expr, b_expr]):
                 return IfExp(self.shrink_exp(a_expr), b_expr, Constant(False))
             case BoolOp(Or(), [a_expr, b_expr]):
@@ -37,7 +40,7 @@ class Compiler(compiler.Compiler):
                 return IfExp(self.shrink_exp(con), self.shrink_exp(body), self.shrink_exp(els))
 
             case Call(Name(name), [expression]):
-                return Expr(Call(Name(name), [self.shrink_exp(expression)]))
+                return Call(Name(name), [self.shrink_exp(expression)])
             
             case _:
                 return e
@@ -59,7 +62,7 @@ class Compiler(compiler.Compiler):
                 return If(self.shrink_exp(test), body_out, ans_out)
 
             case Expr(expression):
-                return self.shrink_exp(expression)
+                return Expr(self.shrink_exp(expression))
             case _: raise Exception("Unknown statement type: " + str(s))
 
     def shrink(self, p: Module) -> Module:
@@ -85,7 +88,6 @@ class Compiler(compiler.Compiler):
                 nlhs = self.rco_exp(operand, True)
                 result = (UnaryOp(Not(), nlhs[0]), nlhs[1])
             case IfExp(cond, body, anso):
-
                 con = []
                 cons = self.rco_exp(cond, False)
                 for x in cons[1]:
@@ -103,8 +105,9 @@ class Compiler(compiler.Compiler):
 
                 result = (IfExp(Begin(con, cons[0]), Begin(lhs, nlhs[0]), Begin(rhs, nrhs[0])), [])
 
-            case Expr(Call(Name(func), [v])):
-                result = self.rco_call(func, v)
+            case Call(Name(func), [v]):
+                o = self.rco_exp(v, True)
+                result = (Call(Name(func), [o[0]]), o[1])
             case _:
                 return super().rco_exp(e, need_atomic)
             
@@ -139,7 +142,7 @@ class Compiler(compiler.Compiler):
                 result: list[stmt] = []
                 for temp in expr[1]:
                     result.append(Assign([temp[0]], temp[1]))
-                result.append(expr[0])
+                result.append(Expr(expr[0]))
                 return result
             case _:
                 return super().rco_stmt(s)
@@ -152,12 +155,13 @@ class Compiler(compiler.Compiler):
         match e:
             case IfExp(test, body, orelse):
                 goto_cont = create_block(cont, basic_blocks)
-                return self.explicate_pred(test, [Expr(body)] + goto_cont, [Expr(orelse)] + goto_cont)
+                return self.explicate_pred(test, 
+                                           [self.explicate_effect(body, goto_cont, basic_blocks)], 
+                                           [self.explicate_effect(orelse, goto_cont, basic_blocks)])
             case Call(func, args):
-                return [Call(func, args)] + cont
+                return [Expr(Call(func, args))] + cont
             case Begin(body, result):
-                self.explicate_stmt_list(body, cont, basic_blocks)
-                return self.explicate_effect(result, cont, basic_blocks)
+                return self.explicate_stmt_list(body, self.explicate_effect(result, cont, basic_blocks), basic_blocks)
             case _:
                 return [Expr(e)] + cont
 
@@ -170,8 +174,7 @@ class Compiler(compiler.Compiler):
                                            ,self.explicate_assign(orelse, lhs, [], basic_blocks) + goto_cont,
                                              basic_blocks)
             case Begin(body, result):
-                self.explicate_stmt_list(body, cont, basic_blocks)
-                return self.explicate_assign(result, lhs, cont, basic_blocks)
+                return self.explicate_stmt_list(body, self.explicate_assign(result, lhs, cont, basic_blocks), basic_blocks)
             case _:
                 return [Assign([lhs], rhs)] + cont
 
@@ -196,7 +199,8 @@ class Compiler(compiler.Compiler):
 
                 return self.explicate_pred(test, bodyTrans, orelseTrans, basic_blocks)
             case Begin(body, result):
-                return body + self.explicate_pred(result, thn, els, basic_blocks)
+                out = self.explicate_stmt_list(body, [], basic_blocks)
+                return out + self.explicate_pred(result, thn, els, basic_blocks)
             case _:
                 return [If(Compare(cnd, [Eq()], [Constant(False)]),
                         create_block(els, basic_blocks),
@@ -242,19 +246,59 @@ class Compiler(compiler.Compiler):
 
     def select_arg(self, e: expr) -> arg:
         match e:
-        # YOUR CODE HERE
+            case False:
+                return Immediate(0)
+            case True:
+                return Immediate(1)
             case _:
                 return super().select_arg(e)
 
     def select_stmt(self, s: stmt) -> list[instr]:
         match s:
-        # YOUR CODE HERE
+            case If(Compare(a, [op], [b]), [Jump(destThn)], [Jump(destOrEls)]):
+                #make compare
+                out = []
+                out.append(Instr("cmpq", [self.select_arg(a), self.select_arg(b)]))
+
+                #if flag set: jump
+                match op:
+                    case Eq():
+                        out.append(JumpIf("eq", destThn))
+                    case NotEq():
+                        out.append(JumpIf("ne", destThn))
+                    case Lt():
+                        out.append(JumpIf("lt", destThn))
+                    case LtE():
+                        out.append(JumpIf("le", destThn))
+                    case Gt():
+                        out.append(JumpIf("gt", destThn))
+                    case GtE():
+                        out.append(JumpIf("ge", destThn))
+                    case _:
+                        raise Exception("unkown operator")
+                    
+                #jump to else
+                out.append(Jump(destOrEls))
+            case Return(val):
+                return [
+                    Instr("movq", [self.select_arg(val), Reg("rax")]),
+                    Jump("end_main")
+                ]
             case _:
                 return super().select_stmt(s)
 
     def select_instructions(self, p: Module) -> X86Program:
-        # YOUR CODE HERE
-        pass
+        out = {}
+
+        for blockID, instrs in p.body.items():
+            out_instr = []
+
+            for i in instrs:
+                out_instr = out_instr + self.select_stmt(i)
+
+            out[blockID] = out_instr
+
+        return X86Program(out)
 
     ###########################################################################
     # Patch Instructions
