@@ -6,13 +6,11 @@ from x86_ast import *
 
 compiler = CompilerC()
 progA="""
-i = input_int()
-j = input_int()
-if i == 0 and j != 1:
-    print(2+4) if input_int() == 2 else print(1+8)
-else:
-    print(2+24)
-print(0)
+i = 0
+print(1)
+while i < 100:
+    i = i + 1
+    print(0)
 """
 progB="""
 i = input_int()
