@@ -255,7 +255,7 @@ class Compiler(compiler.Compiler):
 
     def select_stmt(self, s: stmt) -> list[instr]:
         match s:
-            case If(Compare(a, [op], [b]), [Jump(destThn)], [Jump(destOrEls)]):
+            case If(Compare(a, [op], [b]), [Goto(destThn)], [Goto(destOrEls)]):
                 #make compare
                 out = []
                 out.append(Instr("cmpq", [self.select_arg(a), self.select_arg(b)]))
@@ -279,11 +279,14 @@ class Compiler(compiler.Compiler):
                     
                 #jump to else
                 out.append(Jump(destOrEls))
+                return out
             case Return(val):
                 return [
                     Instr("movq", [self.select_arg(val), Reg("rax")]),
                     Jump("end_main")
                 ]
+            case Goto(target):
+                return [Jump(target)]
             case _:
                 return super().select_stmt(s)
 
