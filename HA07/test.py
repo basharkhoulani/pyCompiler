@@ -1,1 +1,1 @@
-x = 42 + input_int() if True or False else 3
+x = 42 if True and False else 0
