@@ -16,7 +16,10 @@ progB="""
 i = input_int()
 j = input_int()
 if i == 0 and j != 1:
-    print(2+4) if input_int() == 2 else print(1+8)
+    if input_int() == 2:
+        print(2+4)
+    else:
+        print(1+8)
 else:
     print(2+24)
 print(0)
@@ -48,6 +51,15 @@ print(f' Output of pass: AST')
 print('==================================================')
 print()
 print(dump(current_program, indent=2))
+
+print()
+print('==================================================')
+print(f' Output of pass: RCO AST')
+print('==================================================')
+print()
+print(dump(compiler.remove_complex_operands(compiler.shrink(current_program)), indent=2))
+
+
 for pass_name, pass_fn in compiler_passes.items():
     current_program = pass_fn(current_program)
 

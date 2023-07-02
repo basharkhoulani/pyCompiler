@@ -37,8 +37,8 @@ class Compiler(compiler.Compiler):
                 return UnaryOp(op, self.shrink_exp(operand))
             case IfExp(test, body, orelse):
                 return IfExp(self.shrink_exp(test), self.shrink_exp(body), self.shrink_exp(orelse))
-            case Call(Name(value), [args]):
-                return Call(Name(value), [self.shrink_exp(args)])
+            case Call(func, [args]):
+                return Call(func, [self.shrink_exp(args)])
             case _:
                 return e
 
@@ -46,12 +46,8 @@ class Compiler(compiler.Compiler):
         match s:
             case If(test, body, orelse):
                 exp = self.shrink_exp(test)
-                body_new = []
-                for stmt in body:
-                    body_new.append(self.shrink_stmt(stmt))
-                orelse_new = []
-                for stmt in orelse:
-                    orelse_new.append(self.shrink_stmt(stmt))
+                body_new = [self.shrink_stmt(stmt) for stmt in body]
+                orelse_new = [self.shrink_stmt(stmt) for stmt in orelse]
                 return If(exp, body_new, orelse_new)
             case Assign([lhs], rhs):
                 return Assign([lhs], self.shrink_exp(rhs))
@@ -75,45 +71,37 @@ class Compiler(compiler.Compiler):
     def rco_exp(self, e: expr, need_atomic: bool) -> tuple[expr, compiler.Temporaries]:
         match e:
             case IfExp(test, body, orelse):
-                test_exp, test_temps = self.rco_exp(test, False)
-                body_exp, body_temps = self.rco_exp(body, False)
-                orelse_exp, orelse_temps = self.rco_exp(orelse, False)
-                begin_body = Begin([Assign([name], exp) for name, exp in body_temps], body_exp)
-                begin_orelse = Begin([Assign([name], exp) for name, exp in orelse_temps], orelse_exp)
-                if need_atomic:
-                    tmp = Name(get_fresh_tmp())
-                    test_temps += [(tmp, IfExp(test_exp, begin_body, begin_orelse))]
-                    return tmp, test_temps
-                else:
-                    return IfExp(test_exp, begin_body, begin_orelse), test_temps
+                out_test = self.rco_exp(test, False)
+                out_body = self.rco_exp(body, False)
+                out_orelse = self.rco_exp(orelse, False)
+
+                begin_test = []
+                begin_body = []
+                begin_orelse = []
+                for name, exp in out_test[1]:
+                    begin_test.append(Assign([name], exp))
+                for name, exp in out_body[1]:
+                    begin_body.append(Assign([name], exp))
+                for name, exp in out_orelse[1]:
+                    begin_orelse.append(Assign([name], exp))
+
+                result = IfExp(Begin(begin_test, out_test[0]), Begin(begin_body, out_body[0]), Begin(begin_orelse, out_orelse[0])), []
+
             case Compare(left, [cmp], [right]):
-                left_exp, left_temps = self.rco_exp(left, True)
-                right_exp, right_temps = self.rco_exp(right, True)
-                left_temps += right_temps
-                if need_atomic:
-                    temp = Name(get_fresh_tmp())
-                    left_temps += [(temp, Compare(left_exp, [cmp], [right_exp]))]
-                    return temp, left_temps
-                else:
-                    return Compare(left_exp, [cmp], [right_exp]), left_temps
+                out_left = self.rco_exp(left, True)
+                out_right = self.rco_exp(right, True)
+                result = Compare(out_left[0], [cmp], [out_right[0]]), out_left[1] + out_right[1]
             case UnaryOp(Not(), operand):
-                operand_exp, operand_temps = self.rco_exp(operand, True)
-                if need_atomic:
-                    temp = Name(get_fresh_tmp())
-                    operand_temps += [(temp, UnaryOp(Not(), operand_exp))]
-                    return temp, operand_temps
-                else:
-                    return UnaryOp(Not(), operand_exp), operand_temps
-            case Call(func, [args]):
-                args_exp, args_temps = self.rco_exp(args, True)
-                if need_atomic:
-                    temp = Name(get_fresh_tmp())
-                    args_temps += [(temp, Call(func, [args_exp]))]
-                    return temp, args_temps
-                else:
-                    return Call(func, [args_exp]), args_temps
+                out = self.rco_exp(operand, True)
+                result = UnaryOp(Not(), out[0]), out[1]
             case _:
                 return super().rco_exp(e, need_atomic)
+
+        if need_atomic:
+            tmp = get_fresh_tmp()
+            result = (Name(tmp), result[1] + [(Name(tmp), result[0])])
+
+        return result
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
         match s:
@@ -121,10 +109,10 @@ class Compiler(compiler.Compiler):
                 test_exp, test_temps = self.rco_exp(test, False)
                 body_stmts = []
                 for s in body:
-                    body_stmts += self.rco_stmt(s)
+                    body_stmts.extend(self.rco_stmt(s))
                 orelse_stmts = []
                 for s in orelse:
-                    orelse_stmts += self.rco_stmt(s)
+                    orelse_stmts.extend(self.rco_stmt(s))
                 result = []
                 for name, exp in test_temps:
                     result.append(Assign([name], exp))
@@ -153,9 +141,7 @@ class Compiler(compiler.Compiler):
                 return self.explicate_pred(test, new_body, new_orelse, {})
             case Begin(body, result):
                 new_body = self.explicate_effect(result, cont, basic_blocks)
-                for s in reversed(body):
-                    new_body = self.explicate_stmt(s, new_body, basic_blocks)
-                return new_body
+                return self.explicate_stmt_list(body, new_body, basic_blocks)
             case _:
                 return [Expr(e)] + cont
 
@@ -168,9 +154,7 @@ class Compiler(compiler.Compiler):
                 return self.explicate_pred(test, new_body, new_orelse, basic_blocks)
             case Begin(body, result):
                 result = self.explicate_assign(result, lhs, cont, basic_blocks)
-                for s in reversed(body):
-                    result = self.explicate_stmt(s, result, basic_blocks)
-                return result
+                return self.explicate_stmt_list(body, result, basic_blocks)
             case _:
                 return [Assign([lhs], rhs)] + cont
 
@@ -193,9 +177,7 @@ class Compiler(compiler.Compiler):
                 new_orelse = self.explicate_pred(orelse, then_label, else_label, basic_blocks)
                 return self.explicate_pred(test, new_body, new_orelse, basic_blocks)
             case Begin(body, result):
-                result_new = []
-                for s in reversed(body):
-                    result_new = self.explicate_stmt(s, result, basic_blocks)
+                result_new = self.explicate_stmt_list(body, [], basic_blocks)
                 return result_new + self.explicate_pred(result, thn, els, basic_blocks)
             case _:
                 return [If(Compare(cnd, [Eq()], [Constant(False)]),
@@ -215,15 +197,17 @@ class Compiler(compiler.Compiler):
                 return self.explicate_pred(test, new_body, new_orelse, basic_blocks)
             case If(test, body, orelse):
                 continuation = create_block(cont, basic_blocks)
-                new_body = []
-                for s in reversed(body):
-                    new_body = self.explicate_stmt(s, continuation, basic_blocks)
-                new_orelse = []
-                for s in reversed(orelse):
-                    new_orelse = self.explicate_stmt(s, continuation, basic_blocks)
+                new_body = self.explicate_stmt_list(body, continuation, basic_blocks)
+                new_orelse = self.explicate_stmt_list(orelse, continuation, basic_blocks)
                 return self.explicate_pred(test, new_body, new_orelse, basic_blocks)
             case _:
                 raise Exception(f"Unexpected statement: {s}")
+
+    def explicate_stmt_list(self, s, cont, basic_blocks) -> list[stmt]:
+        out = cont
+        for x in reversed(s):
+            out = self.explicate_stmt(x, out, basic_blocks)
+        return out
 
     def explicate_control(self, p: Module):
         match p:
