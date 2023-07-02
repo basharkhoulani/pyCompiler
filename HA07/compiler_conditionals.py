@@ -53,6 +53,10 @@ class Compiler(compiler.Compiler):
                 return Assign([lhs], self.shrink_exp(rhs))
             case Expr(value):
                 return Expr(self.shrink_exp(value))
+            case While(test, body, []):
+                exp = self.shrink_exp(test)
+                body_new = [self.shrink_stmt(stmt) for stmt in body]
+                return While(exp, body_new, [])
             case _:
                 raise Exception(f'Unexpected statement: {s}')
 
@@ -124,6 +128,16 @@ class Compiler(compiler.Compiler):
                 for name, exp in test_temps:
                     result.append(Assign([name], exp))
                 result.append(Expr(test_exp))
+                return result
+            case While(test, body, []):
+                test_exp, test_temps = self.rco_exp(test, False)
+                body_stmts = []
+                for s in body:
+                    body_stmts.extend(self.rco_stmt(s))
+                result = []
+                for name, exp in test_temps:
+                    result.append(Assign([name], exp))
+                result.append(While(test_exp, body_stmts, []))
                 return result
             case _:
                 return super().rco_stmt(s)
@@ -200,6 +214,11 @@ class Compiler(compiler.Compiler):
                 new_body = self.explicate_stmt_list(body, continuation, basic_blocks)
                 new_orelse = self.explicate_stmt_list(orelse, continuation, basic_blocks)
                 return self.explicate_pred(test, new_body, new_orelse, basic_blocks)
+            case While(test, body, []):
+                while_block = label_name(generate_name('while'))
+                new_body = self.explicate_stmt_list(body, [Goto(while_block)], basic_blocks)
+                basic_blocks[while_block] = self.explicate_pred(test, new_body, cont, basic_blocks)
+                return [Goto(while_block)]
             case _:
                 raise Exception(f"Unexpected statement: {s}")
 
@@ -225,19 +244,70 @@ class Compiler(compiler.Compiler):
 
     def select_arg(self, e: expr) -> arg:
         match e:
-            # YOUR CODE HERE
+            case Constant(True):
+                return Immediate(1)
+            case Constant(False):
+                return Immediate(0)
             case _:
                 return super().select_arg(e)
 
     def select_stmt(self, s: stmt) -> list[instr]:
+        result = []
         match s:
-            # YOUR CODE HERE
+            case Assign([lhs], UnaryOp(Not(), operand)) if lhs == operand:
+                lhs = self.select_arg(lhs)
+                result.append(Instr('xorq', [Immediate(1), lhs]))
+            case Assign([lhs], UnaryOp(Not(), operand)):
+                lhs = self.select_arg(lhs)
+                operand = self.select_arg(operand)
+                result.append(Instr('movq', [operand, lhs]))
+                result.append(Instr('xorq', [Immediate(1), lhs]))
+            case Assign([lhs], Compare(left, [op], [right])):
+                lhs = self.select_arg(lhs)
+                left = self.select_arg(left)
+                right = self.select_arg(right)
+                result.append(Instr('cmpq', [right, left]))
+                result.append(Instr('set' + op, [ByteReg('al')]))
+                result.append(Instr('movzbq', [ByteReg('al'), lhs]))
+            case Return(Constant(n)):
+                result.append(Instr('movq', [self.select_arg(Constant(n)), Reg('rax')]))
+                result.append(Instr('retq', []))
+            case Goto(label):
+                result.append(Jump(label))
+            case If(expr, [Goto(thn)], [Goto(els)]):
+                match expr:
+                    case Compare(left, [op], [right]):
+                        left = self.select_arg(left)
+                        right = self.select_arg(right)
+                        result.append(Instr('cmpq', [right, left]))
+                        match op:
+                            case Eq():
+                                result.append(JumpIf('eq', thn))
+                            case NotEq():
+                                result.append(JumpIf('ne', thn))
+                            case Lt():
+                                result.append(JumpIf('lt', thn))
+                            case LtE():
+                                result.append(JumpIf('le', thn))
+                            case Gt():
+                                result.append(JumpIf('gt', thn))
+                            case GtE():
+                                result.append(JumpIf('ge', thn))
+                        result.append(Jump(els))
             case _:
                 return super().select_stmt(s)
+        return result
 
     def select_instructions(self, p: Module) -> X86Program:
-        # YOUR CODE HERE
-        pass
+        blocks = {}
+        match p:
+            case CProgram(basic_blocks):
+                for label, stmts in basic_blocks.items():
+                    result = []
+                    for s in stmts:
+                        result.extend(self.select_stmt(s))
+                    blocks[label] = result
+                return X86Program(blocks)
 
     ###########################################################################
     # Patch Instructions

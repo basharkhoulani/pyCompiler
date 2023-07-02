@@ -10,7 +10,8 @@ i = 0
 print(1)
 while i < 100:
     i = i + 1
-    print(0)
+    print(i)
+print(2)
 """
 progB="""
 i = input_int()
@@ -35,7 +36,7 @@ compiler_passes = {
     'prelude & conclusion': compiler.prelude_and_conclusion,
 }
 
-prog = progB
+prog = progA
 current_program = parse(prog)
 
 print()
