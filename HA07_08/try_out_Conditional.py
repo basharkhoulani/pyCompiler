@@ -13,13 +13,12 @@ while i < 100:
     print(0)
 """
 progB="""
-i = input_int()
-j = input_int()
-if i == 0 and j != 1:
-    print(2+4) if input_int() == 2 else print(1+8)
-else:
-    print(2+24)
-print(0)
+i = 0
+t = input_int()
+print(1)
+while (i < 100) if t == 2 else (i < 50):
+    i = i + 1
+    print(0)
 """
 
 compiler_passes = {

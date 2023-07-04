@@ -63,6 +63,18 @@ class Compiler(compiler.Compiler):
 
             case Expr(expression):
                 return Expr(self.shrink_exp(expression))
+            
+            case While(test, body, anso):
+                body_out = []
+                ans_out = []
+
+                for instr in body:
+                    body_out.append(self.shrink_stmt(instr))
+                for instr in anso:
+                    ans_out.append(self.shrink_stmt(instr))
+
+                return While(self.shrink_exp(test), body_out, ans_out)
+
             case _: raise Exception("Unknown statement type: " + str(s))
 
     def shrink(self, p: Module) -> Module:
@@ -135,6 +147,22 @@ class Compiler(compiler.Compiler):
                 for temp in testExpr[1]:
                     result.append(Assign([temp[0]], temp[1]))
                 result.append(If(testExpr[0], body_out, ans_out))
+                return result
+            case While(test, body, anso):
+                testExpr = self.rco_exp(test, False)
+
+                body_out = []
+                ans_out = []
+
+                for instr in body:
+                    body_out = body_out + self.rco_stmt(instr)
+                for instr in anso:
+                    ans_out = ans_out + self.rco_stmt(instr)
+
+                result: list[stmt] = []
+                for temp in testExpr[1]:
+                    result.append(Assign([temp[0]], temp[1]))
+                result.append(While(testExpr[0], body_out, ans_out))
                 return result
             case IfExp(test, body, elseBody):
                 expr = self.rco_exp(IfExp(test, body, elseBody), False)
@@ -217,7 +245,23 @@ class Compiler(compiler.Compiler):
                 return self.explicate_pred(test, self.explicate_effect(body, goto_cont, basic_blocks), self.explicate_effect(orelse, goto_cont, basic_blocks), basic_blocks)
             case If(test, body, orelse):
                 goto_cont = create_block(cont, basic_blocks)
+
                 return self.explicate_pred(test, self.explicate_stmt_list(body, goto_cont, basic_blocks), self.explicate_stmt_list(orelse, goto_cont, basic_blocks), basic_blocks)
+            
+            case While(test, body, orelse):
+                goto_cont = create_block(cont, basic_blocks)
+            
+                #create start block
+                label = label_name(generate_name('block'))
+                basic_blocks[label] = []
+                goto_loop_start = [Goto(label)]
+
+                #progress else blocks
+                goto_loop_body = create_block(self.explicate_stmt_list(body, goto_loop_start, basic_blocks), basic_blocks)
+                goto_loop_else = create_block(self.explicate_stmt_list(orelse, goto_cont, basic_blocks), basic_blocks)
+
+                basic_blocks[label] = self.explicate_pred(test, goto_loop_body, goto_loop_else, basic_blocks)
+                return goto_loop_start
             case _:
                 raise Exception("unkown statement")
             
@@ -227,7 +271,6 @@ class Compiler(compiler.Compiler):
             out = self.explicate_stmt(x, out, basic_blocks)
 
         return out
-
 
 
     def explicate_control(self, p: Module):
