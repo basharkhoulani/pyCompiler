@@ -217,7 +217,7 @@ class Compiler:
     def patch_instructions(self, p: X86Program) -> X86Program:
         p.body = self.patch_instrs(p.body)
         return p
-
+    
     ############################################################################
     # Prelude & Conclusion
     ############################################################################
