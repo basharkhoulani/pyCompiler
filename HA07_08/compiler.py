@@ -202,7 +202,7 @@ class Compiler:
         result: list[instr] = []
         match i:
             case Instr('movq', [a, b]) if a == b:
-                 return []
+                     return []
             case Instr(inst, [Deref(lhs, n), Deref(rhs, m)]):
                 if inst == 'movq' and lhs == rhs and n == m:
                     return []

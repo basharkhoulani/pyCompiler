@@ -352,13 +352,20 @@ class Compiler(compiler_register_allocator.Compiler):
 
     def patch_instr(self, i: instr) -> list[instr]:
         match i:
-        # YOUR CODE HERE
+            case Jump(label):
+                return [Jump(label)]
+            case JumpIf(cc, label):
+                return [JumpIf(cc, label)]
             case _:
                 return super().patch_instr(i)
 
     def patch_instructions(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
-        pass
+        blocks = {}
+
+        for label, instrs in p.body.items():
+            blocks[label] = self.patch_instrs(instrs)
+
+        return X86Program(blocks)
 
     ###########################################################################
     # Prelude & Conclusion
