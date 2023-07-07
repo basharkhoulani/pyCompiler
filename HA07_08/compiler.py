@@ -152,6 +152,8 @@ class Compiler:
             case Variable(name):
                 if name in home:
                     return home[name]
+                elif a in home:
+                    return home[a]
                 else:
                     self.stack_size += 8
                     arg = Deref('rbp', -self.stack_size)
@@ -178,17 +180,19 @@ class Compiler:
                 ])
             case Callq(name, n):
                 return Callq(name, n)
+            case Jump(label):
+                return Jump(label)
+            case JumpIf(cc, label):
+                return JumpIf(cc, label)
             case _:
                 raise Exception("Unknown instruction type: " + str(i))
 
-    def assign_homes_instrs(self, s: list[instr],
-                            home: dict[Variable, arg]) -> list[instr]:
+    def assign_homes_instrs(self, s: list[instr], home: dict[Variable, arg]) -> list[instr]:
         return [self.assign_homes_instr(i, home) for i in s]
 
     def assign_homes(self, p: X86Program) -> X86Program:
         self.stack_size = 0
-        p.body = self.assign_homes_instrs(p.body, {})
-        return p
+        return self.assign_homes_instrs(p.body, {})
 
     ############################################################################
     # Patch Instructions

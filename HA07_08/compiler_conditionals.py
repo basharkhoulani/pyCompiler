@@ -1,4 +1,4 @@
-#import compiler_register_allocator as compiler
+import compiler_register_allocator as compiler_register_allocator
 from compiler import get_fresh_tmp
 import compiler
 from graph import UndirectedAdjList
@@ -15,7 +15,7 @@ def create_block(stmts, basic_blocks):
             basic_blocks[label] = stmts
             return [Goto(label)]
 
-class Compiler(compiler.Compiler):
+class Compiler(compiler_register_allocator.Compiler):
 
     ###########################################################################
     # Shrink
