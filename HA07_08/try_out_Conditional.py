@@ -57,6 +57,6 @@ for pass_name, pass_fn in compiler_passes.items():
     print()
     print(current_program)
 
-if 1:
+if 0:
     emu = X86Emulator(logging=True)
     emu.parse_and_eval_program(str(current_program))
