@@ -3,18 +3,18 @@ from compiler import Compiler as CompilerA
 from compiler_register_allocator import Compiler as CompilerB
 from compiler_conditionals import Compiler as CompilerC
 from x86_ast import *
+from interp_x86.eval_x86 import X86Emulator
 
 compiler = CompilerC()
 progA="""
 i = 0
-print(1)
-while i < 100:
-    i = i + 1
-    print(0)
+print(0)
+i = i + 1
 """
 progB="""
 i = 0
-t = input_int()
+print(4)
+t = 2
 print(1)
 while (i < 100) if t == 2 else (i < 50):
     i = i + 1
@@ -56,3 +56,7 @@ for pass_name, pass_fn in compiler_passes.items():
     print('==================================================')
     print()
     print(current_program)
+
+if 1:
+    emu = X86Emulator(logging=True)
+    emu.parse_and_eval_program(str(current_program))

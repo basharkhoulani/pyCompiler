@@ -1,10 +1,27 @@
 from interp_x86.eval_x86 import X86Emulator
 
 prog1="""
-  .globl main
+    .globl main
+wab:
+    movq $4, %rdi
+    callq print_int
+    jmp end
+
 main:
-  movq $10, %rax
-  addq $32, %rax
+  pushq %rbp
+  movq %rsp, %rbp
+  subq $16, %rsp
+  
+  movq $0, %rcx
+  cmpq %rcx, $2
+  je wab
+  movq $2, %rdi
+  callq print_int
+  jmp end
+
+end:
+  addq $16, %rsp
+  popq %rbp
   retq
 """
 
@@ -38,6 +55,5 @@ main:
   retq
 """
 
-for prog in prog1, prog2, prog3:
-  emu = X86Emulator(logging=True)
-  emu.parse_and_eval_program(prog)
+emu = X86Emulator(logging=True)
+emu.parse_and_eval_program(prog1)

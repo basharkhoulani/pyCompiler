@@ -33,7 +33,7 @@ class X86Emulator:
         self.global_vals = {}
 
     def log(self, s):
-        if self.logging:
+        if self.logging or True:
             print(s)
 
     def parse_and_eval_program(self, s):

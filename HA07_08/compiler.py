@@ -219,6 +219,7 @@ class Compiler:
         return result
 
     def patch_instructions(self, p: X86Program) -> X86Program:
+        self.stack_before = self.stack_size
         p.body = self.patch_instrs(p.body)
         return p
     

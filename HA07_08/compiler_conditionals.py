@@ -1,4 +1,5 @@
 import compiler_register_allocator as compiler_register_allocator
+from compiler_register_allocator import caller_saved_registers
 from compiler import get_fresh_tmp
 import compiler
 from graph import UndirectedAdjList
@@ -301,20 +302,20 @@ class Compiler(compiler_register_allocator.Compiler):
             case If(Compare(a, [op], [b]), [Goto(destThn)], [Goto(destOrEls)]):
                 #make compare
                 out = []
-                out.append(Instr("cmpq", [self.select_arg(a), self.select_arg(b)]))
+                out.append(Instr("cmpq", [self.select_arg(b), self.select_arg(a)]))
 
                 #if flag set: jump
                 match op:
                     case Eq():
-                        out.append(JumpIf("eq", destThn))
+                        out.append(JumpIf("e", destThn))
                     case NotEq():
                         out.append(JumpIf("ne", destThn))
                     case Lt():
-                        out.append(JumpIf("lt", destThn))
+                        out.append(JumpIf("l", destThn))
                     case LtE():
                         out.append(JumpIf("le", destThn))
                     case Gt():
-                        out.append(JumpIf("gt", destThn))
+                        out.append(JumpIf("g", destThn))
                     case GtE():
                         out.append(JumpIf("ge", destThn))
                     case _:
@@ -356,11 +357,18 @@ class Compiler(compiler_register_allocator.Compiler):
                 return [Jump(label)]
             case JumpIf(cc, label):
                 return [JumpIf(cc, label)]
+            case Callq(label, args):
+                return [
+                    Callq("saveRegs", 0),
+                    i,
+                    Callq("restoreRegs", 0)
+                ]
             case _:
                 return super().patch_instr(i)
 
     def patch_instructions(self, p: X86Program) -> X86Program:
         blocks = {}
+        self.stack_before = self.stack_size
 
         for label, instrs in p.body.items():
             blocks[label] = self.patch_instrs(instrs)
@@ -372,8 +380,31 @@ class Compiler(compiler_register_allocator.Compiler):
     ###########################################################################
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
-        pass
+        adjust_stack_size = self.stack_size if self.stack_size % 16 == 0 else self.stack_size + 8
+
+        prelude = [
+            Instr("pushq", [Reg("rbp")]), 
+            Instr("movq", [Reg("rsp"), Reg("rbp")]),
+            Instr('subq', [Immediate(adjust_stack_size), Reg('rsp')]),
+            Jump("start")
+        ]
+        postlude = [
+            Instr('addq', [Immediate(adjust_stack_size), Reg('rsp')]),
+            Instr('popq', [Reg('rbp')]), 
+            Instr('retq', [])
+        ]
+
+        saveRegs = self.save(caller_saved_registers)
+        saveRegs.append(Instr('retq', []))
+        restoreRegs = self.restore(caller_saved_registers)
+        restoreRegs.append(Instr('retq', []))
+
+        blocks = p.body
+        blocks["main"] = prelude
+        blocks["end_main"] = postlude
+        blocks["saveRegs"] = saveRegs
+        blocks["restoreRegs"] = restoreRegs
+        return X86Program(blocks)
 
     ##################################################
     # Compiler

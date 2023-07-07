@@ -274,7 +274,52 @@ class Compiler(compiler.Compiler):
         for label, instrs in p.body.items():
             blocks[label] = self.assign_homes_instrs(instrs, home)
 
-        return X86Program(blocks)
+        #set live after for patch callq instructions
+        out = X86Program(blocks)
+        #self.live_after = self.uncover_live(out)
+        return out
+
+    ###########################################################################
+    # Patch Instructions
+    ###########################################################################   
+    def save(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        # save all variables onto the stack
+        for reg in registers:
+            # except for rax and rdi
+            if isinstance(reg, Reg) and reg in caller_saved_registers and reg in registers_for_coloring:
+                result.append(Instr('movq', [reg, Deref('rbp', -(self.stack_before + 8 * index))]))
+                index += 1
+        return result
+    
+    def restore(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        # restore all variables from the stack
+        for reg in registers:
+            # except for rax and rdi
+            if isinstance(reg, Reg) and reg in caller_saved_registers and reg in registers_for_coloring:
+                result.append(Instr('movq', [Deref('rbp', -(self.stack_before + 8 * index)), reg]))
+                index += 1
+        return result
+        
+    def patch_instr(self, i: instr) -> list[instr]:
+        match i:
+            case Callq(_, args):
+                result: list[instr] = []
+                #registers = self.live_after.get(i, [])
+                # save caller saved registers onto the stack before the call
+                result.extend(self.save(caller_saved_registers))
+                # do the call
+                result.append(i)
+                # restore caller saved registers after the call
+                result.extend(self.restore(caller_saved_registers))
+                return result
+            case _:
+                return super().patch_instr(i)
 
 
 ##################################################
