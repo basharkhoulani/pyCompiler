@@ -55,4 +55,4 @@ interp_dict = {
     'patch_instructions': interp_x86,
 }
 
-run_tests('lif', ra_compiler, 'lif', typecheck_dict, interp_dict)
+run_tests('lif', cond_compiler, 'lif', typecheck_dict, interp_dict)

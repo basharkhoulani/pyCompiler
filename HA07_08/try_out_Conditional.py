@@ -20,13 +20,11 @@ else:
         d = False
 """
 progB="""
-i = 0
-print(4)
-t = 2
-print(1)
-while (i < 100) if t == 2 else (i < 50):
-    i = i + 1
-    print(0)
+i = input_int()
+a = i == 0
+if a:
+    print(4)
+print(2)
 """
 
 compiler_passes = {
@@ -39,7 +37,7 @@ compiler_passes = {
     'prelude & conclusion': compiler.prelude_and_conclusion,
 }
 
-prog = progA
+prog = progB
 current_program = parse(prog)
 
 print()
