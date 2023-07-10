@@ -8,6 +8,7 @@ import interp_Cif
 import type_check_Lvar
 import type_check_Lif
 import type_check_Cif
+import type_check_Lwhile
 from utils import run_tests, run_one_test
 from interp_x86.eval_x86 import interp_x86
 
@@ -35,7 +36,7 @@ run_tests('regalloc', ra_compiler, 'regalloc', typecheck_dict, interp_dict)
 
 ###########################################################################
 
-typecheck_Lif = type_check_Lif.TypeCheckLif().type_check
+typecheck_Lif = type_check_Lwhile.TypeCheckLwhile().type_check
 typecheck_Cif = type_check_Cif.TypeCheckCif().type_check
 
 typecheck_dict = {

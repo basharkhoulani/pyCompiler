@@ -103,7 +103,7 @@ class Compiler(compiler.Compiler):
     def assign_transfer(self, node, input : set):
 
         #postlude case
-        if node=="end_main":
+        if node=="conclusion":
             return set([Reg("rax"), Reg("rbp")])
 
 

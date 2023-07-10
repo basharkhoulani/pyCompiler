@@ -344,7 +344,7 @@ class Compiler(compiler_register_allocator.Compiler):
             case Return(val):
                 return [
                     Instr("movq", [self.select_arg(val), Reg("rax")]),
-                    Jump("end_main")
+                    Jump("conclusion")
                 ]
             case Goto(target):
                 return [Jump(target)]
@@ -390,6 +390,15 @@ class Compiler(compiler_register_allocator.Compiler):
         for label, instrs in p.body.items():
             blocks[label] = self.patch_instrs(instrs)
 
+        #add save/load reg functions
+        saveRegs = self.save(caller_saved_registers)
+        saveRegs.append(Instr('retq', []))
+        restoreRegs = self.restore(caller_saved_registers)
+        restoreRegs.append(Instr('retq', []))
+
+        blocks["saveRegs"] = saveRegs
+        blocks["restoreRegs"] = restoreRegs
+
         return X86Program(blocks)
 
     ###########################################################################
@@ -411,16 +420,9 @@ class Compiler(compiler_register_allocator.Compiler):
             Instr('retq', [])
         ]
 
-        saveRegs = self.save(caller_saved_registers)
-        saveRegs.append(Instr('retq', []))
-        restoreRegs = self.restore(caller_saved_registers)
-        restoreRegs.append(Instr('retq', []))
-
         blocks = p.body
         blocks["main"] = prelude
-        blocks["end_main"] = postlude
-        blocks["saveRegs"] = saveRegs
-        blocks["restoreRegs"] = restoreRegs
+        blocks["conclusion"] = postlude
         return X86Program(blocks)
 
     ##################################################
