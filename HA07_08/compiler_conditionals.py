@@ -290,6 +290,10 @@ class Compiler(compiler_register_allocator.Compiler):
 
     def select_arg(self, e: expr) -> arg:
         match e:
+            case Constant(False):
+                return Immediate(0)
+            case Constant(True):
+                return Immediate(1)
             case False:
                 return Immediate(0)
             case True:
@@ -297,31 +301,44 @@ class Compiler(compiler_register_allocator.Compiler):
             case _:
                 return super().select_arg(e)
 
+    def select_compareType(self, op) -> str:
+        match op:
+            case Eq():
+                return "e"
+            case NotEq():
+                return "ne"
+            case Lt():
+                return "l"
+            case LtE():
+                return "le"
+            case Gt():
+                return "g"
+            case GtE():
+                return "ge"
+            case _:
+                raise Exception("unkown operator")
+
+    def select_assign(self, name: str, exp: expr) -> list[instr]:
+        match exp:
+            case Compare(a, [op], [b]):
+                return [
+                    Instr("cmpq", [self.select_arg(b), self.select_arg(a)]),
+                    Instr("set" + self.select_compareType(op), [Variable(name)])
+                ]
+            case Not(arg):
+                return [
+                    Instr("movq", [self.select_arg(arg), Variable(name)]),
+                    Instr("xorq", [Immediate(1), Variable(name)])
+                ]
+        return super().select_assign(name, exp)
+
     def select_stmt(self, s: stmt) -> list[instr]:
         match s:
             case If(Compare(a, [op], [b]), [Goto(destThn)], [Goto(destOrEls)]):
                 #make compare
                 out = []
                 out.append(Instr("cmpq", [self.select_arg(b), self.select_arg(a)]))
-
-                #if flag set: jump
-                match op:
-                    case Eq():
-                        out.append(JumpIf("e", destThn))
-                    case NotEq():
-                        out.append(JumpIf("ne", destThn))
-                    case Lt():
-                        out.append(JumpIf("l", destThn))
-                    case LtE():
-                        out.append(JumpIf("le", destThn))
-                    case Gt():
-                        out.append(JumpIf("g", destThn))
-                    case GtE():
-                        out.append(JumpIf("ge", destThn))
-                    case _:
-                        raise Exception("unkown operator")
-                    
-                #jump to else
+                out.append(JumpIf(self.select_compareType(op), destThn))
                 out.append(Jump(destOrEls))
                 return out
             case Return(val):

@@ -7,9 +7,17 @@ from interp_x86.eval_x86 import X86Emulator
 
 compiler = CompilerC()
 progA="""
-i = 0
-print(0)
-i = i + 1
+a = 2
+b = 8
+c = a < b
+print(4)
+if c:
+    print(1)
+else:
+    d = a == b
+    while d:
+        print(8)
+        d = False
 """
 progB="""
 i = 0
@@ -31,7 +39,7 @@ compiler_passes = {
     'prelude & conclusion': compiler.prelude_and_conclusion,
 }
 
-prog = progB
+prog = progA
 current_program = parse(prog)
 
 print()

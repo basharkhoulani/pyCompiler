@@ -103,7 +103,7 @@ class Compiler:
     def select_assign(self, name: str, exp: expr) -> list[instr]:
         match exp:
             case Constant(n):
-                return [Instr("movq", [Immediate(n), Variable(name)])]
+                return [Instr("movq", [self.select_arg(exp), Variable(name)])]
             case Name(name2):
                 return [Instr("movq", [Variable(name2), Variable(name)])]
             case UnaryOp(USub(), Constant(n)):
