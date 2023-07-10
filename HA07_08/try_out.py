@@ -8,7 +8,11 @@ compiler_a = CompilerA()
 # compiler_b = CompilerB()
 
 prog="""
-print(input_int() + input_int() + input_int())
+x = 10
+x = x + x
+y = x - x
+print(x)
+print(y)
 """
 
 ast = parse(prog)

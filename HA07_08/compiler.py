@@ -192,7 +192,7 @@ class Compiler:
 
     def assign_homes(self, p: X86Program) -> X86Program:
         self.stack_size = 0
-        return self.assign_homes_instrs(p.body, {})
+        return X86Program(self.assign_homes_instrs(p.body, {}))
 
     ############################################################################
     # Patch Instructions
