@@ -1,49 +1,62 @@
 from ast import parse,dump
-from compiler_register_allocator import Compiler
+from compiler import Compiler as CompilerA
+from compiler_register_allocator import Compiler as CompilerB
+from compiler_conditionals import Compiler as CompilerC
+from x86_ast import *
 
-compiler = Compiler()
-
+compiler = CompilerC()
 progA="""
-a = input_int() + 2
-b = input_int() + 4
-c = input_int() + 8
-d = input_int() + 16
-e = input_int() + 32
-print(a + b + c + d + e)
+a = 0 if True else 1
+i = input_int()
+j = input_int()
+if i == 0 and j != 1:
+    print(1)
+else:
+    print(2)
+print(0)
 """
-
 progB="""
-a = 1
-b = 2
-c = 3
-c = a + b + c
-print_int(c + 4)
+i = input_int()
+j = input_int()
+if i == 0 and j != 1:
+    print(2*4) if input_int() == 2 else print(1+8)
+else:
+    print(2*24)
+print(0)
 """
 
-ast = parse(progA)
-print(dump(ast, indent=2))
+compiler_passes = {
+    'shrink': compiler.shrink,
+    'remove complex operands': compiler.remove_complex_operands,
+    'explicate control': compiler.explicate_control,
+    'select instructions': compiler.select_instructions,
+    'assign homes': compiler.assign_homes,
+    'patch instructions': compiler.patch_instructions,
+    'prelude & conclusion': compiler.prelude_and_conclusion,
+}
 
-print("===============================")
+prog = progB
+current_program = parse(prog)
 
-ast_after_rco = compiler.remove_complex_operands(ast)
-print(str(ast_after_rco))
+print()
+print('==================================================')
+print(f' RAW CODE')
+print('==================================================')
+print()
+print(prog)
 
-print("===============================")
+print()
+print('==================================================')
+print(f' Output of pass: AST')
+print('==================================================')
+print()
+print(dump(current_program, indent=2))
+for pass_name, pass_fn in compiler_passes.items():
+    current_program = pass_fn(current_program)
 
-ast_after_select_instrs = compiler.select_instructions(ast_after_rco)
-print(ast_after_select_instrs)
-
-print("===============================")
-
-ast_after_assign_registers = compiler.assign_homes(ast_after_select_instrs)
-print(ast_after_assign_registers)
-
-print("===============================")
-
-ast_after_patch_instructions = compiler.patch_instructions(ast_after_assign_registers)
-print(ast_after_patch_instructions)
-
-print("===============================")
-
-ast_after_patch_instructions = compiler.prelude_and_conclusion(ast_after_assign_registers)
-print(ast_after_patch_instructions)
+    print()
+    print('==================================================')
+    print(f' Output of pass: {pass_name}')
+    print('==================================================')
+    print()
+    print(current_program)

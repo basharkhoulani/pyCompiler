@@ -1,4 +1,5 @@
 #import compiler_register_allocator as compiler
+from compiler import get_fresh_tmp
 import compiler
 from graph import UndirectedAdjList
 from ast import *
@@ -21,16 +22,48 @@ class Compiler(compiler.Compiler):
     ###########################################################################
 
     def shrink_exp(self, e: expr) -> expr:
-        # YOUR CODE HERE
-        pass
+        match e:
+            case BoolOp(And(), exp):
+                return IfExp(exp[0], exp[1], Constant(False))
+            case BoolOp(Or(), exp):
+                return IfExp(exp[0], Constant(True), exp[1])
+            case BinOp(left,op,right):
+                return BinOp(self.shrink_exp(left),op,self.shrink_exp(right))
+            case UnaryOp(op,stmt):
+                return UnaryOp(op, self.shrink_exp(stmt))
+            case IfExp(cons, then, els):
+                return IfExp(self.shrink_exp(cons),self.shrink_exp(then), self.shrink_exp(els))
+            case _:
+                return e
 
     def shrink_stmt(self, s: stmt) -> stmt:
-        # YOUR CODE HERE
-        pass
+        match s:
+            case Assign([Name(name)], expression):
+                return Assign([Name(name)], self.shrink_exp(expression))
+            
+            case If(test, body, anso):
+                body_out = []
+                ans_out = []
+
+                for ins in body:
+                    body_out.append(self.shrink_stmt(ins))
+                for ins in anso:
+                    ans_out.append(self.shrink_stmt(ins))
+
+                return If(self.shrink_exp(test), body_out, ans_out)
+
+            case Expr(expression):
+                return self.shrink_exp(expression)
+            case _:
+                raise Exception("WRONG DIKLARATION FROM IF CLASS")
 
     def shrink(self, p: Module) -> Module:
-        # YOUR CODE HERE
-        pass
+        result = []
+        match p:
+            case Module(body):
+                for s in body:
+                    result.append(self.shrink_stmt(s))
+        return Module(result)
 
     ############################################################################
     # Remove Complex Operands
@@ -38,15 +71,79 @@ class Compiler(compiler.Compiler):
 
     def rco_exp(self, e: expr, need_atomic: bool) -> tuple[expr, compiler.Temporaries]:
         match e:
-            # YOUR CODE HERE
+            case Expr(Call(func,[atm])):
+                result = self.reco_call(func, atm)
+            
+            case Compare(left, [op], [right]):
+                l = self.rco_exp(left, True)
+                r = self.rco_exp(right, True)
+
+                result = (Compare(l[0], [op], [r[0]]), l[1] + r[1])
+            
+            case UnaryOp(Not(), op):
+                l = self.rco_exp(op, True)
+                result = (UnaryOp(Not(), l[0]), l[1])
+            
+            case IfExp(con, thn, els):
+                cons = []
+                thns = []
+                elses = []
+                const = self.rco_exp(con, False)
+                then = self.rco_exp(thn, False)
+                elss = self.rco_exp(els,False)
+                
+                for x in const:
+                    cons.append(Assign([x[0]], x[1]))
+                
+                for x in then:
+                    thns.append(Assign([x[0]], x[1]))
+                    
+                for x in elss:
+                    elses.append(Assign([x[0]], x[1]))
+                
+                result = (IfExp(Begin(const, cons[0]), Begin(then, thns[0]), Begin(elss, elses[0])), [])
+                
             case _:
                 return super().rco_exp(e, need_atomic)
+            
+        if need_atomic:
+            tmp = get_fresh_tmp()
+            result = result = (Name(tmp), result[1] + [(Name(tmp), result[0])])
+        return result
+                
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
         match s:
-            # YOUR CODE HERE
+            case If(con, thn, els):
+                conExpr = self.rco_exp(con, False)
+                thnout = []
+                elsout = []
+
+                for instr in thn:
+                    thnout = thnout + self.rco_stmt(instr)
+                for instr in els:
+                    elsout = elsout + self.rco_stmt(instr)
+
+                result: list[stmt] = []
+                
+                for temp in conExpr[1]:
+                    result.append(Assign([temp[0]], temp[1]))
+                    
+                result.append(If(conExpr[0], thnout, elsout))
+                
+                return result
+            
+            case IfExp(test, body, elseBody):
+                expr = self.rco_exp(IfExp(test, body, elseBody), False)
+
+                result: list[stmt] = []
+                for temp in expr[1]:
+                    result.append(Assign([temp[0]], temp[1]))
+                result.append(expr[0])
+                return result
             case _:
                 return super().rco_stmt(s)
+
 
     ############################################################################
     # Explicate Control
