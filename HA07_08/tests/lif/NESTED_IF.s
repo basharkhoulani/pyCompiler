@@ -1,5 +1,5 @@
 	.align 16
-block_242:
+block_249:
     movq $0, %rdi
     callq saveRegs
     callq print_int
@@ -8,52 +8,52 @@ block_242:
     jmp conclusion
 
 	.align 16
-block_243:
+block_250:
     movq %rdx, %rdi
     callq saveRegs
     callq print_int
     callq restoreRegs
-    jmp block_242
+    jmp block_249
 
 	.align 16
-block_244:
+block_251:
     movq $4, %rcx
     addq $4, %rcx
     movq %rcx, %rdx
-    jmp block_243
+    jmp block_250
 
 	.align 16
-block_245:
+block_252:
     movq $1, %rcx
     addq $8, %rcx
     movq %rcx, %rdx
-    jmp block_243
+    jmp block_250
 
 	.align 16
-block_246:
+block_253:
     callq saveRegs
     callq read_int
     callq restoreRegs
     movq %rax, %rcx
     cmpq $2, %rcx
-    je block_244
-    jmp block_245
+    je block_251
+    jmp block_252
 
 	.align 16
-block_247:
+block_254:
     movq $24, %rcx
     addq $24, %rcx
     movq %rcx, %rdi
     callq saveRegs
     callq print_int
     callq restoreRegs
-    jmp block_242
+    jmp block_249
 
 	.align 16
-block_248:
+block_255:
     cmpq $1, %rcx
-    jne block_246
-    jmp block_247
+    jne block_253
+    jmp block_254
 
 	.align 16
 start:
@@ -66,29 +66,29 @@ start:
     callq restoreRegs
     movq %rax, %rcx
     cmpq $0, %rdx
-    je block_248
-    jmp block_247
+    je block_255
+    jmp block_254
 
 	.align 16
 saveRegs:
-    movq %rdx, -408(%rbp)
-    movq %r8, -416(%rbp)
-    movq %r11, -424(%rbp)
-    movq %rsi, -432(%rbp)
-    movq %r10, -440(%rbp)
-    movq %rcx, -448(%rbp)
-    movq %r9, -456(%rbp)
+    movq %rcx, -488(%rbp)
+    movq %rdx, -496(%rbp)
+    movq %r11, -504(%rbp)
+    movq %r9, -512(%rbp)
+    movq %r10, -520(%rbp)
+    movq %rsi, -528(%rbp)
+    movq %r8, -536(%rbp)
     retq 
 
 	.align 16
 restoreRegs:
-    movq -408(%rbp), %rdx
-    movq -416(%rbp), %r8
-    movq -424(%rbp), %r11
-    movq -432(%rbp), %rsi
-    movq -440(%rbp), %r10
-    movq -448(%rbp), %rcx
-    movq -456(%rbp), %r9
+    movq -488(%rbp), %rcx
+    movq -496(%rbp), %rdx
+    movq -504(%rbp), %r11
+    movq -512(%rbp), %r9
+    movq -520(%rbp), %r10
+    movq -528(%rbp), %rsi
+    movq -536(%rbp), %r8
     retq 
 
 	.globl main
@@ -96,12 +96,12 @@ restoreRegs:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $480, %rsp
+    subq $560, %rsp
     jmp start
 
 	.align 16
 conclusion:
-    addq $480, %rsp
+    addq $560, %rsp
     popq %rbp
     retq 
 

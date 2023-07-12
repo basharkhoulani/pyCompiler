@@ -55,21 +55,21 @@ main:
     addq %r10, %rcx
     addq %r11, %rcx
     movq %rcx, %rdi
-    movq %r8, -640(%rbp)
+    movq %rcx, -640(%rbp)
     movq %rdx, -648(%rbp)
-    movq %rcx, -656(%rbp)
-    movq %r10, -664(%rbp)
-    movq %rsi, -672(%rbp)
-    movq %r11, -680(%rbp)
-    movq %r9, -688(%rbp)
+    movq %r11, -656(%rbp)
+    movq %r9, -664(%rbp)
+    movq %r10, -672(%rbp)
+    movq %rsi, -680(%rbp)
+    movq %r8, -688(%rbp)
     callq print_int
-    movq -640(%rbp), %r8
+    movq -640(%rbp), %rcx
     movq -648(%rbp), %rdx
-    movq -656(%rbp), %rcx
-    movq -664(%rbp), %r10
-    movq -672(%rbp), %rsi
-    movq -680(%rbp), %r11
-    movq -688(%rbp), %r9
+    movq -656(%rbp), %r11
+    movq -664(%rbp), %r9
+    movq -672(%rbp), %r10
+    movq -680(%rbp), %rsi
+    movq -688(%rbp), %r8
     addq $720, %rsp
     popq %rbp
     retq 
