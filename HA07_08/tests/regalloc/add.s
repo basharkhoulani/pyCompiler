@@ -2,26 +2,26 @@
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $80, %rsp
+    subq $960, %rsp
     movq $40, %rcx
     addq $2, %rcx
     movq %rcx, %rdi
-    movq %rdx, -8(%rbp)
-    movq %rsi, -16(%rbp)
-    movq %r11, -24(%rbp)
-    movq %rcx, -32(%rbp)
-    movq %r10, -40(%rbp)
-    movq %r8, -48(%rbp)
-    movq %r9, -56(%rbp)
+    movq %r8, -880(%rbp)
+    movq %rdx, -888(%rbp)
+    movq %rcx, -896(%rbp)
+    movq %r10, -904(%rbp)
+    movq %rsi, -912(%rbp)
+    movq %r11, -920(%rbp)
+    movq %r9, -928(%rbp)
     callq print_int
-    movq -8(%rbp), %rdx
-    movq -16(%rbp), %rsi
-    movq -24(%rbp), %r11
-    movq -32(%rbp), %rcx
-    movq -40(%rbp), %r10
-    movq -48(%rbp), %r8
-    movq -56(%rbp), %r9
-    addq $80, %rsp
+    movq -880(%rbp), %r8
+    movq -888(%rbp), %rdx
+    movq -896(%rbp), %rcx
+    movq -904(%rbp), %r10
+    movq -912(%rbp), %rsi
+    movq -920(%rbp), %r11
+    movq -928(%rbp), %r9
+    addq $960, %rsp
     popq %rbp
     retq 
 

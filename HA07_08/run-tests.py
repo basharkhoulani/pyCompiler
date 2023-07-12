@@ -4,6 +4,7 @@ import compiler_register_allocator as ra_compiler
 import compiler_conditionals as cond_compiler
 import interp_Lvar
 import interp_Lif
+import interp_Lwhile
 import interp_Cif
 import type_check_Lvar
 import type_check_Lif
@@ -45,7 +46,7 @@ typecheck_dict = {
     'explicate_control': typecheck_Cif,
 }
 
-interpLif = interp_Lif.InterpLif().interp
+interpLif = interp_Lwhile.InterpLwhile().interp
 interpCif = interp_Cif.InterpCif().interp
 interp_dict = {
     'shrink': interpLif,

@@ -2,7 +2,7 @@
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $1120, %rsp
+    subq $1040, %rsp
     movq $1, %rcx
     addq $1, %rcx
     movq %rcx, %rdx
@@ -16,21 +16,21 @@ main:
     addq %rdx, %rcx
     movq %rcx, %rdx
     movq %rdx, %rdi
-    movq %rdx, -1040(%rbp)
-    movq %rsi, -1048(%rbp)
-    movq %r11, -1056(%rbp)
-    movq %rcx, -1064(%rbp)
-    movq %r10, -1072(%rbp)
-    movq %r8, -1080(%rbp)
-    movq %r9, -1088(%rbp)
+    movq %r8, -960(%rbp)
+    movq %rdx, -968(%rbp)
+    movq %rcx, -976(%rbp)
+    movq %r10, -984(%rbp)
+    movq %rsi, -992(%rbp)
+    movq %r11, -1000(%rbp)
+    movq %r9, -1008(%rbp)
     callq print_int
-    movq -1040(%rbp), %rdx
-    movq -1048(%rbp), %rsi
-    movq -1056(%rbp), %r11
-    movq -1064(%rbp), %rcx
-    movq -1072(%rbp), %r10
-    movq -1080(%rbp), %r8
-    movq -1088(%rbp), %r9
+    movq -960(%rbp), %r8
+    movq -968(%rbp), %rdx
+    movq -976(%rbp), %rcx
+    movq -984(%rbp), %r10
+    movq -992(%rbp), %rsi
+    movq -1000(%rbp), %r11
+    movq -1008(%rbp), %r9
     movq $1, %rcx
     addq $1, %rcx
     movq %rcx, %rsi
@@ -44,22 +44,22 @@ main:
     addq %rsi, %rcx
     movq %rcx, %rsi
     movq %rsi, %rdi
-    movq %rdx, -1040(%rbp)
-    movq %rsi, -1048(%rbp)
-    movq %r11, -1056(%rbp)
-    movq %rcx, -1064(%rbp)
-    movq %r10, -1072(%rbp)
-    movq %r8, -1080(%rbp)
-    movq %r9, -1088(%rbp)
+    movq %r8, -960(%rbp)
+    movq %rdx, -968(%rbp)
+    movq %rcx, -976(%rbp)
+    movq %r10, -984(%rbp)
+    movq %rsi, -992(%rbp)
+    movq %r11, -1000(%rbp)
+    movq %r9, -1008(%rbp)
     callq print_int
-    movq -1040(%rbp), %rdx
-    movq -1048(%rbp), %rsi
-    movq -1056(%rbp), %r11
-    movq -1064(%rbp), %rcx
-    movq -1072(%rbp), %r10
-    movq -1080(%rbp), %r8
-    movq -1088(%rbp), %r9
-    addq $1120, %rsp
+    movq -960(%rbp), %r8
+    movq -968(%rbp), %rdx
+    movq -976(%rbp), %rcx
+    movq -984(%rbp), %r10
+    movq -992(%rbp), %rsi
+    movq -1000(%rbp), %r11
+    movq -1008(%rbp), %r9
+    addq $1040, %rsp
     popq %rbp
     retq 
 
