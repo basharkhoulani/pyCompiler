@@ -160,11 +160,10 @@ class Compiler(compiler_register_allocator.Compiler):
                 for instr in anso:
                     ans_out = ans_out + self.rco_stmt(instr)
 
-                result: list[stmt] = []
+                testInstr: list[stmt] = []
                 for temp in testExpr[1]:
-                    result.append(Assign([temp[0]], temp[1]))
-                result.append(While(testExpr[0], body_out, ans_out))
-                return result
+                    testInstr.append(Assign([temp[0]], temp[1]))
+                return [While(Begin(testInstr, testExpr[0]), body_out, ans_out)]
             case IfExp(test, body, elseBody):
                 expr = self.rco_exp(IfExp(test, body, elseBody), False)
 
@@ -249,11 +248,11 @@ class Compiler(compiler_register_allocator.Compiler):
 
                 return self.explicate_pred(test, self.explicate_stmt_list(body, goto_cont, basic_blocks), self.explicate_stmt_list(orelse, goto_cont, basic_blocks), basic_blocks)
             
-            case While(test, body, orelse):
+            case While(Begin(instr, exprTest), body, orelse):
                 goto_cont = create_block(cont, basic_blocks)
             
                 #create start block
-                label = label_name(generate_name('block'))
+                label = label_name(generate_name('block_while'))
                 basic_blocks[label] = []
                 goto_loop_start = [Goto(label)]
 
@@ -261,7 +260,7 @@ class Compiler(compiler_register_allocator.Compiler):
                 goto_loop_body = create_block(self.explicate_stmt_list(body, goto_loop_start, basic_blocks), basic_blocks)
                 goto_loop_else = create_block(self.explicate_stmt_list(orelse, goto_cont, basic_blocks), basic_blocks)
 
-                basic_blocks[label] = self.explicate_pred(test, goto_loop_body, goto_loop_else, basic_blocks)
+                basic_blocks[label] = instr + self.explicate_pred(exprTest, goto_loop_body, goto_loop_else, basic_blocks)
                 return goto_loop_start
             case _:
                 raise Exception("unkown statement")

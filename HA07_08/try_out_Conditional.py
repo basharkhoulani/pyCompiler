@@ -20,11 +20,10 @@ else:
         d = False
 """
 progB="""
-i = input_int()
-a = i == 0
-if a:
-    print(4)
-print(2)
+while(input_int() < 5):
+    print(9)
+    i = i + 1
+print(1)
 """
 
 compiler_passes = {
