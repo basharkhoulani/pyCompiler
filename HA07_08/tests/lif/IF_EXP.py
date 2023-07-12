@@ -1,1 +1,2 @@
-print(2) if input_int() == 2 else print(1)
+a = 2 if input_int() == 2 else 1
+print(a)
