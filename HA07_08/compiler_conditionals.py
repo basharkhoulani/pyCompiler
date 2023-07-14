@@ -28,9 +28,9 @@ class Compiler(compiler_register_allocator.Compiler):
                 return Compare(self.shrink_exp(left), [op], [self.shrink_exp(right)])
             
             case BoolOp(And(), [a_expr, b_expr]):
-                return IfExp(self.shrink_exp(a_expr), b_expr, Constant(False))
+                return IfExp(self.shrink_exp(a_expr), self.shrink_exp(b_expr), Constant(False))
             case BoolOp(Or(), [a_expr, b_expr]):
-                return IfExp(self.shrink_exp(a_expr), Constant(True), b_expr)
+                return IfExp(self.shrink_exp(a_expr), Constant(True), self.shrink_exp(b_expr))
 
             case BinOp(left, op, right):
                 return BinOp(self.shrink_exp(left), op, self.shrink_exp(right))

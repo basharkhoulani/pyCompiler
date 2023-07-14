@@ -20,10 +20,12 @@ else:
         d = False
 """
 progB="""
-while(input_int() < 5):
-    print(9)
-    i = i + 1
-print(1)
+a = 0
+b = 0
+c = 3
+if a == b and (c > 5 or c < 3):
+    print(1)
+print(0)
 """
 
 compiler_passes = {
