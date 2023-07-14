@@ -29,24 +29,24 @@ start:
 
 	.align 16
 saveRegs:
-    movq %rcx, -408(%rbp)
-    movq %rdx, -416(%rbp)
+    movq %r8, -408(%rbp)
+    movq %r10, -416(%rbp)
     movq %r11, -424(%rbp)
-    movq %r9, -432(%rbp)
-    movq %r10, -440(%rbp)
+    movq %rdx, -432(%rbp)
+    movq %rcx, -440(%rbp)
     movq %rsi, -448(%rbp)
-    movq %r8, -456(%rbp)
+    movq %r9, -456(%rbp)
     retq 
 
 	.align 16
 restoreRegs:
-    movq -408(%rbp), %rcx
-    movq -416(%rbp), %rdx
+    movq -408(%rbp), %r8
+    movq -416(%rbp), %r10
     movq -424(%rbp), %r11
-    movq -432(%rbp), %r9
-    movq -440(%rbp), %r10
+    movq -432(%rbp), %rdx
+    movq -440(%rbp), %rcx
     movq -448(%rbp), %rsi
-    movq -456(%rbp), %r8
+    movq -456(%rbp), %r9
     retq 
 
 	.globl main

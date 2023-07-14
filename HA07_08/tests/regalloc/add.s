@@ -6,21 +6,21 @@ main:
     movq $40, %rcx
     addq $2, %rcx
     movq %rcx, %rdi
-    movq %rcx, -880(%rbp)
-    movq %rdx, -888(%rbp)
+    movq %r8, -880(%rbp)
+    movq %r10, -888(%rbp)
     movq %r11, -896(%rbp)
-    movq %r9, -904(%rbp)
-    movq %r10, -912(%rbp)
+    movq %rdx, -904(%rbp)
+    movq %rcx, -912(%rbp)
     movq %rsi, -920(%rbp)
-    movq %r8, -928(%rbp)
+    movq %r9, -928(%rbp)
     callq print_int
-    movq -880(%rbp), %rcx
-    movq -888(%rbp), %rdx
+    movq -880(%rbp), %r8
+    movq -888(%rbp), %r10
     movq -896(%rbp), %r11
-    movq -904(%rbp), %r9
-    movq -912(%rbp), %r10
+    movq -904(%rbp), %rdx
+    movq -912(%rbp), %rcx
     movq -920(%rbp), %rsi
-    movq -928(%rbp), %r8
+    movq -928(%rbp), %r9
     addq $960, %rsp
     popq %rbp
     retq 
