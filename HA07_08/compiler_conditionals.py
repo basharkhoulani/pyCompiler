@@ -7,7 +7,7 @@ from ast import *
 from x86_ast import *
 from utils import *
 
-def create_block(stmts, basic_blocks):
+def create_block(stmts: list[stmt], basic_blocks: list[list[stmt]]) -> list[stmt]:
     match stmts:
         case [Goto(l)]:
             return stmts
@@ -179,7 +179,7 @@ class Compiler(compiler_register_allocator.Compiler):
     # Explicate Control
     ############################################################################
 
-    def explicate_effect(self, e, cont, basic_blocks) -> list[stmt]:
+    def explicate_effect(self, e: expr, cont: list[stmt], basic_blocks: list[list[stmt]]) -> list[stmt]:
         match e:
             case IfExp(test, body, orelse):
                 goto_cont = create_block(cont, basic_blocks)
@@ -193,7 +193,7 @@ class Compiler(compiler_register_allocator.Compiler):
             case _:
                 return [Expr(e)] + cont
 
-    def explicate_assign(self, rhs, lhs, cont, basic_blocks) -> list[stmt]:
+    def explicate_assign(self, rhs: stmt, lhs: stmt, cont: list[stmt], basic_blocks: list[list[stmt]]) -> list[stmt]:
         match rhs:
             case IfExp(test, body, orelse):
                 goto_cont = create_block(cont, basic_blocks)
@@ -206,7 +206,7 @@ class Compiler(compiler_register_allocator.Compiler):
             case _:
                 return [Assign([lhs], rhs)] + cont
 
-    def explicate_pred(self, cnd, thn, els, basic_blocks) -> list[stmt]:
+    def explicate_pred(self, cnd: stmt, thn: list[stmt], els: list[stmt], basic_blocks: list[list[stmt]]) -> list[stmt]:
         match cnd:
             case Compare(left, [op], [right]):
                 goto_thn = create_block(thn, basic_blocks)
@@ -234,7 +234,7 @@ class Compiler(compiler_register_allocator.Compiler):
                         create_block(els, basic_blocks),
                         create_block(thn, basic_blocks))]
 
-    def explicate_stmt(self, s: stmt, cont, basic_blocks) -> list[stmt]:
+    def explicate_stmt(self, s: stmt, cont: list[stmt], basic_blocks: list[list[stmt]]) -> list[stmt]:
         match s:
             case Assign([lhs], rhs):
                 return self.explicate_assign(rhs, lhs, cont, basic_blocks)
@@ -265,7 +265,7 @@ class Compiler(compiler_register_allocator.Compiler):
             case _:
                 raise Exception("unkown statement")
             
-    def explicate_stmt_list(self, s, cont, basic_blocks) -> list[stmt]:
+    def explicate_stmt_list(self, s: list[stmt], cont: list[stmt], basic_blocks: list[list[stmt]]) -> list[stmt]:
         out = cont
         for x in reversed(s):
             out = self.explicate_stmt(x, out, basic_blocks)
@@ -300,7 +300,7 @@ class Compiler(compiler_register_allocator.Compiler):
             case _:
                 return super().select_arg(e)
 
-    def select_compareType(self, op) -> str:
+    def select_compareType(self, op: cmpop) -> str:
         match op:
             case Eq():
                 return "e"

@@ -1,3 +1,3 @@
-x = 1
-x = x
-print(x)
+while (input_int() < 5):
+   print(0)
+print(1)
