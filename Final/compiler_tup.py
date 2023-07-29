@@ -46,6 +46,10 @@ def cc(op):
             return 'g'
         case GtE():
             return 'ge'
+        case Is():
+            return "e"
+        case _:
+            raise Exception("unkown cc")
 
 def get_loc_from_arg(a: arg) -> set[location]:
     match a:
@@ -86,6 +90,15 @@ class Compiler:
                 return UnaryOp(op, self.shrink_exp(operand))
             case Call(Name('input_int'), []):
                 return e
+            case Tuple(elts):
+                o = []
+
+                for x in elts:
+                    o.append(self.shrink_exp(x))
+
+                return Tuple(o)
+            case Subscript(value, slice):
+                raise Exception("")
             case _:
                 raise Exception('unhandled case in shrink_exp:' + repr(e))
 
@@ -124,7 +137,101 @@ class Compiler:
     # Expose Allocation
     ###########################################################################
 
+    def expose_expr(self, e : expr) -> tuple[expr, list[instr]]:
+        match e:
+            case Constant(_) | Name(_):
+                return (e, [])
+            case IfExp(e1, e2, e3):
+                expr1, instr1 = self.expose_expr(e1)
+                expr2, instr2 = self.expose_expr(e2)
+                expr3, instr3 = self.expose_expr(e3)
+                return (IfExp(
+                    expr1, Begin(instr2, expr2), Begin(instr3, expr3)
+                ), instr1)
+            case Compare(left, [op], [right]):
+                exprL, instrL = self.expose_expr(left)
+                exprR, instrR = self.expose_expr(right)
+                return (Compare(exprL, [op], [exprR]), instrL + instrR)
+            case BinOp(e1, op, e2):
+                expr1, instr1 = self.expose_expr(e1)
+                expr2, instr2 = self.expose_expr(e2)
+                return (BinOp(expr1, op, expr2), instr1 + instr2)
+            case UnaryOp(op, operand):
+                expr, instr = self.expose_expr(operand)
+                return (UnaryOp(op, expr), instr)
+            case Call(Name('input_int'), []):
+                return (e, [])
+            case Tuple(elts):
+                instrBefore = []
+                instrAfter = []
+                types = []
+                tupleVar = Name(get_fresh_tmp())
 
+                #iterate over all values
+                i = 0
+                for x in elts:
+                    var = Name(get_fresh_tmp())
+                    types.append(IntType)
+                    instrBefore.append(Assign([var], x))
+                    target_in_tuper = Subscript(tupleVar, Constant(i), Load())
+                    instrAfter.append(Assign([target_in_tuper], var))
+                    i = i + 1
+
+                #if global_value(free_ptr) + bytes < global_value(fromspace_end):
+                #
+                #else:
+                # collect(bytes)
+                freeSpaceAfterAlloc = BinOp(GlobalValue("free_ptr"), Add(), Constant(i * 8))
+                allocateTupel = [
+                        If(
+                            Compare(freeSpaceAfterAlloc, [Lt()], [GlobalValue("fromspace_end")]), 
+                            [], 
+                            [Expr(Call(Name("collect"), [Constant(i*8)]))]
+                        ),
+                                   
+                        Assign([tupleVar], Call(Name("allocate"), [Constant(i*8), TupleType(types)]))
+                                ]
+
+                return (tupleVar, instrBefore + allocateTupel + instrAfter)
+            case _:
+                raise Exception('unhandled case in shrink_exp:' + repr(e))
+
+    def expose_stmt(self, s: stmt) -> list[stmt]:
+        match s:
+            case If(test, thn, els):
+                thn_shrink = []
+                for s in thn:
+                    thn_shrink = thn_shrink + self.expose_stmt(s)
+                els_shrink = []
+                for s in els:
+                    els_shrink = els_shrink + self.expose_stmt(s)
+                
+                expr, instr = self.expose_expr(test)
+                return instr + [If(expr, thn_shrink, els_shrink)]
+            case While(test, body, []):
+                body_shrink = []
+                for s in body:
+                    body_shrink = body_shrink + self.expose_stmt(s)
+                    
+                expr, instr = self.expose_expr(test)
+                return [While(Begin(instr, expr), body_shrink, [])]
+            case Expr(Call(Name('print'), [arg])):
+                expr, instr = self.expose_expr(arg)
+                return instr + [Expr(Call(Name('print'), [expr]))]
+            case Expr(e):
+                expr, instr = self.expose_expr(e)
+                return instr + [Expr(expr)]
+            case Assign(lhs, rhs):
+                expr, instr = self.expose_expr(rhs)
+                return instr + [Assign(lhs, expr)]
+            case _:
+                raise Exception('unhandled case in expose_stmt:' + repr(s))
+
+    def expose_allocation(self, p : Module) -> Module:
+        new_body = []
+        for stm in p.body:
+            new_body = new_body + self.expose_stmt(stm)
+        return Module(new_body)
 
     ############################################################################
     # Remove Complex Operands
@@ -140,20 +247,33 @@ class Compiler:
         match e:
             case Name(_) | Constant(_):
                 return (e, [])
+            case GlobalValue(name):
+                return (e, [])
+            case Subscript(Name(str), Constant(i), ctx):
+                if need_atomic:
+                    fresh_tmp = get_fresh_tmp()
+                    return (Name(fresh_tmp), [(Name(fresh_tmp), e)])
+                return (e, [])
+            
             case Call(Name('input_int'), []):
                 if need_atomic:
                     fresh_tmp = get_fresh_tmp()
                     return (Name(fresh_tmp), [(Name(fresh_tmp), e)])
                 return (e, [])
-            case UnaryOp(USub(), e1):
+            case Call(Name("allocate"), [Constant(a), b]):
+                if need_atomic:
+                    fresh_tmp = get_fresh_tmp()
+                    return (Name(fresh_tmp), [(Name(fresh_tmp), e)])
+                return (e, [])
+            case UnaryOp(op, e1):
                 atm, tmps = self.rco_exp(e1, True)
                 if need_atomic:
                     fresh_tmp = get_fresh_tmp()
                     return (
                         Name(fresh_tmp),
-                        tmps + [(Name(fresh_tmp), UnaryOp(USub(), atm))],
+                        tmps + [(Name(fresh_tmp), UnaryOp(op, atm))],
                     )
-                return (UnaryOp(USub(), atm), tmps)
+                return (UnaryOp(op, atm), tmps)
             case BinOp(e1, op, e2):
                 atm1, tmps1 = self.rco_exp(e1, True)
                 atm2, tmps2 = self.rco_exp(e2, True)
@@ -187,7 +307,7 @@ class Compiler:
                         + [(Name(fresh_tmp), Compare(atml, [op], [atmr]))],
                     )
                 return (Compare(atml, [op], [atmr]), tmpsl + tmpsr)
-            case IfExp(e1, e2, e3):
+            case IfExp(e1, Begin(instr2, e2), Begin(instr3, e3)):
                 atm1, tmps1 = self.rco_exp(e1, False)
                 atm2, tmps2 = self.rco_exp(e2, False)
                 atm3, tmps3 = self.rco_exp(e3, False)
@@ -205,8 +325,8 @@ class Compiler:
                                 Name(fresh_tmp),
                                 IfExp(
                                     Begin(begin1, atm1),
-                                    Begin(begin2, atm2),
-                                    Begin(begin3, atm3),
+                                    Begin(instr2 + begin2, atm2),
+                                    Begin(instr3 + begin3, atm3),
                                 ),
                             )
                         ],
@@ -226,12 +346,19 @@ class Compiler:
             case Expr(Call(Name('print'), [e])):
                 atm, tmps = self.rco_exp(e, True)
                 return self.tmps_to_stmts(tmps) + [Expr(Call(Name('print'), [atm]))]
+            case Expr(Call(Name('collect'), [Constant(e)])):
+                return [Expr(Call(Name('collect'), [Constant(e)]))]           
             case Expr(e):
                 atm, tmps = self.rco_exp(e, False)
                 return self.tmps_to_stmts(tmps) + [Expr(atm)]
+            
             case Assign([Name(var)], e):
                 atm, tmps = self.rco_exp(e, False)
                 return self.tmps_to_stmts(tmps) + [Assign([Name(var)], atm)]
+            case Assign([Subscript(Name(str), Constant(i), ctx)], e):
+                atm, tmps = self.rco_exp(e, False)
+                return self.tmps_to_stmts(tmps) + [Assign([Subscript(Name(str), Constant(i), ctx)], atm)]    
+                   
             case If(test, thn, els):
                 atm, tmps = self.rco_exp(test, False)
 
@@ -244,14 +371,16 @@ class Compiler:
                     rco_els += self.rco_stmt(s)
 
                 return self.tmps_to_stmts(tmps) + [If(atm, rco_thn, rco_els)]
-            case While(test, body, []):
+
+            case While(Begin(instr, test), body, []):
                 atm, tmps = self.rco_exp(test, False)
 
                 rco_body = []
                 for s in body:
                     rco_body += self.rco_stmt(s)
 
-                return self.tmps_to_stmts(tmps) + [While(atm, rco_body, [])]
+                return [While(Begin(instr + self.tmps_to_stmts(tmps), atm), rco_body, [])]
+
             case _:
                 raise Exception('unhandled case in rco_stmt ' + repr(s))
 
@@ -417,6 +546,8 @@ class Compiler:
                 return Immediate(n)
             case Name(v):
                 return Variable(v)
+            case GlobalValue(v):
+                return Global(v)
             case _:
                 raise Exception("missing arg type")
 
@@ -478,10 +609,37 @@ class Compiler:
             case Assign([Name(var)], Call(Name('input_int'), [])):
                 result.append(Callq(label_name('read_int'), 0))
                 result.append(Instr('movq', [Reg('rax'), Variable(var)]))
+
+            #var = allocate(bytes, tuple)
+            #wird zu
+            #movq free_ptr(%rip), %r11
+            #addq $8(len+1), free_ptr(%rip)
+            #movq $tag, 0(%r11)
+            #movq %r11, lhs′
+            case Assign([Name(var)], Call(Name('allocate'), [Constant(bytes), tuple])):
+                tag = 0
+
+                result = [
+                    Instr('movq', [Reg('rip'), Reg('r11')]),
+                    Instr('addq', [Constant(bytes + 8), Reg('rip')]),
+                    Instr('movq', [Constant(tag), Deref('r11', 0)]),
+                    Instr('movq', [Reg('r11'), Variable(var)])
+                ]
+
+            # var = t[x]
+            case Assign([Name(var)], Subscript(Name(str), Constant(i), ctx)):
+                result = [
+                    Instr('movq', [Variable(str), Reg("r11")]),
+                    Instr('movq', [Deref("r11", 8 * (i + 1)), Variable(var)])
+                ]
+
             # var = var | var = int
             case Assign([Name(var)], atm):
                 arg = self.select_arg(atm)
                 result.append(Instr('movq', [arg, Variable(var)]))
+
+            case _:
+                raise Exception("unkown assign")
 
         return result
 
@@ -503,6 +661,14 @@ class Compiler:
             # var = exp
             case Assign([Name(var)], exp):
                 return self.select_assign(s)
+            
+            # var[x] = exp
+            case Assign([Subscript(Name(str), Constant(i), ctx)], exp):
+                return [
+                    Instr("movq", [Variable(str), Reg("r11")]),
+                    Instr("movq", [self.select_arg(exp), Deref("r11", 8 * (i + 1))])
+                ]
+
             # print(atm)
             case Expr(Call(Name('print'), [atm])):
                 arg = self.select_arg(atm)
@@ -510,9 +676,22 @@ class Compiler:
                     Instr('movq', [arg, Reg('rdi')]),
                     Callq(label_name('print_int'), 1),
                 ]
+            
+            #collect( bytes )
+            case Expr(Call(Name('collect'), [bytes])):
+                return [
+                    Instr('movq', [Reg('r15'), Reg('rdi')]),
+                    Instr('movq', [Constant(bytes), Reg('rsi')]),
+                    Callq(label_name('collect'), 2),
+                ]
+            
+
             # input_int()
             case Expr(Call(Name('input_int'), [])):
                 return [Callq(label_name('read_int'), 0)]
+            
+            case _:
+                raise Exception("unkown instruction")
 
     def select_instructions(self, p: Module) -> X86Program:
         new_body = {}
