@@ -1,48 +1,40 @@
 	.align 16
-block_160:
-    movq -1816(%rbp), %rdi
+block_166:
+    movq %rcx, %rdi
     callq print_int
     movq $0, %rax
     jmp conclusion
 
 	.align 16
-block_161:
-    movq $1, -1824(%rbp)
-    addq $2, -1824(%rbp)
-    movq -1824(%rbp), %rax
-    movq %rax, -1816(%rbp)
-    addq $3, -1816(%rbp)
-    jmp block_160
+block_167:
+    movq $1, %rcx
+    addq $2, %rcx
+    addq $3, %rcx
+    jmp block_166
 
 	.align 16
-block_162:
-    movq $1, -1832(%rbp)
-    negq -1832(%rbp)
-    movq $2, -1840(%rbp)
-    negq -1840(%rbp)
-    movq -1832(%rbp), %rax
-    movq %rax, -1848(%rbp)
-    movq -1840(%rbp), %rax
-    addq %rax, -1848(%rbp)
-    movq $3, -1856(%rbp)
-    negq -1856(%rbp)
-    movq -1848(%rbp), %rax
-    movq %rax, -1816(%rbp)
-    movq -1856(%rbp), %rax
-    addq %rax, -1816(%rbp)
-    jmp block_160
+block_168:
+    movq $1, %rcx
+    negq %rcx
+    movq $2, %rdx
+    negq %rdx
+    addq %rdx, %rcx
+    movq $3, %rdx
+    negq %rdx
+    addq %rdx, %rcx
+    jmp block_166
 
 	.align 16
 start:
-    movq $4, -1864(%rbp)
-    addq $2, -1864(%rbp)
-    cmpq $0, -1864(%rbp)
-    jg block_161
-    jmp block_162
+    movq $4, %rcx
+    addq $2, %rcx
+    cmpq $0, %rcx
+    jg block_167
+    jmp block_168
 
 	.align 16
 conclusion:
-    addq $1872, %rsp
+    addq $32, %rsp
     popq %rbp
     retq 
 
@@ -51,11 +43,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $1872, %rsp
-    movq $16384, %rdi
-    movq $16384, %rsi
-    callq initialize
-    movq rootstack_begin(%rip), %r15
+    subq $32, %rsp
     jmp start
 
 

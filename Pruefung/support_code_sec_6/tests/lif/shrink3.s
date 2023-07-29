@@ -1,27 +1,27 @@
 	.align 16
-block_166:
+block_134:
     movq $0, %rax
     jmp conclusion
 
 	.align 16
-block_167:
+block_135:
     movq $0, %rdi
     callq print_int
-    jmp block_166
+    jmp block_134
 
 	.align 16
-block_168:
+block_136:
     movq $1, %rdi
     callq print_int
-    jmp block_166
+    jmp block_134
 
 	.align 16
 start:
-    jmp block_168
+    jmp block_136
 
 	.align 16
 conclusion:
-    addq $1872, %rsp
+    addq $32, %rsp
     popq %rbp
     retq 
 
@@ -30,11 +30,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $1872, %rsp
-    movq $16384, %rdi
-    movq $16384, %rsi
-    callq initialize
-    movq rootstack_begin(%rip), %r15
+    subq $32, %rsp
     jmp start
 
 
