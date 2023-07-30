@@ -12,6 +12,43 @@ Binding = tuple[Name, expr]
 Temporaries = list[Binding]
 get_fresh_tmp = lambda: generate_name('tmp')
 
+registers_for_coloring = [
+    Reg('rcx'),
+    Reg('rdx'),
+    Reg('rsi'),
+    Reg('r8'),
+    Reg('r9'),
+    Reg('r10'),
+    Reg('r11'),
+    Reg('r15'),
+]
+
+
+def create_block(stmts, basic_blocks):
+    match stmts:
+        case [Goto(l)]:
+            return stmts
+        case _:
+            label = label_name(generate_name('block'))
+            basic_blocks[label] = stmts
+            return [Goto(label)]
+
+
+def cc(op):
+    match op:
+        case Eq():
+            return 'e'
+        case NotEq():
+            return 'ne'
+        case Lt():
+            return 'l'
+        case LtE():
+            return 'le'
+        case Gt():
+            return 'g'
+        case GtE():
+            return 'ge'
+
 class Compiler:
 
     def tmps_to_stmts(self, tmps: Temporaries) -> list[stmt]:
@@ -137,6 +174,9 @@ class Compiler:
                 
             case _:
                 return e
+            
+    def expose_allocation_stmts(self, stmts: list[stmt]) -> list[stmt]:
+        return [self.expose_allocation_stmt(s) for s in stmts]
 
     def expose_allocation_stmt(self, s: stmt) -> stmt:
         match s:
@@ -350,6 +390,143 @@ class Compiler:
     # Explicate Control
     ############################################################################
 
+    def explicate_effect(self, e, cont, basic_blocks) -> list[stmt]:
+        match e:
+            case IfExp(test, body, orelse):
+                goto_cont = create_block(cont, basic_blocks)
+                body_instr = self.explicate_effect(body, goto_cont, basic_blocks)
+                orelse_instr = self.explicate_effect(orelse, goto_cont, basic_blocks)
+
+                return self.explicate_pred(test, body_instr, orelse_instr, basic_blocks)
+            case Call(func, args):
+                return [Expr(e)] + cont
+            case Begin(body, result):
+                new_body = self.epxlicate_effect(result, cont, basic_blocks) + [cont]
+                for s in reversed(body):
+                    new_body = self.epxlicate_stmt(s, new_body, basic_blocks)
+                return new_body
+            case _:
+                return cont
+
+    def explicate_assign(self, rhs, lhs, cont, basic_blocks) -> list[stmt]:
+        match rhs:
+            case IfExp(test, body, orelse):
+                goto_cont = create_block(cont, basic_blocks)
+
+                body_instr = self.explicate_assign(body, lhs, goto_cont, basic_blocks)
+                orelse_instr = self.explicate_assign(
+                    orelse, lhs, goto_cont, basic_blocks
+                )
+
+                return self.explicate_pred(test, body_instr, orelse_instr, basic_blocks)
+            case Begin(body, result):
+                new_body = self.explicate_assign(result, lhs, cont, basic_blocks)
+                for s in reversed(body):
+                    new_body = self.explicate_stmt(s, new_body, basic_blocks)
+                return new_body
+            case _:
+                return [Assign([lhs], rhs)] + cont
+
+    def explicate_pred(self, cnd, thn, els, basic_blocks) -> list[stmt]:
+        match cnd:
+            case Compare(left, [op], [right]):
+                goto_thn = create_block(thn, basic_blocks)
+                goto_els = create_block(els, basic_blocks)
+
+                return [If(cnd, goto_thn, goto_els)]
+            case Constant(True):
+                return thn
+            case Constant(False):
+                return els
+            case UnaryOp(Not(), operand):
+                return self.explicate_pred(operand, els, thn, basic_blocks)
+            case IfExp(test, body, orelse):
+                goto_thn = create_block(thn, basic_blocks)
+                goto_els = create_block(els, basic_blocks)
+
+                new_body_if_cond = self.explicate_pred(
+                    body, goto_thn, goto_els, basic_blocks
+                )
+
+                new_orelse_if_cond = self.explicate_pred(
+                    orelse, goto_thn, goto_els, basic_blocks
+                )
+
+                return self.explicate_pred(
+                    test, new_body_if_cond, new_orelse_if_cond, basic_blocks
+                )
+            case Begin(body, result):
+                new_body = self.explicate_pred(result, thn, els, basic_blocks)
+                for s in reversed(body):
+                    new_body = self.explicate_stmt(s, new_body, basic_blocks)
+
+                return new_body
+            case _:
+                return [
+                    If(
+                        Compare(cnd, [Eq()], [Constant(False)]),
+                        create_block(els, basic_blocks),
+                        create_block(thn, basic_blocks),
+                    )
+                ]
+
+    def explicate_stmt(self, s: stmt, cont, basic_blocks) -> list[stmt]:
+        match s:
+            case Assign([lhs], rhs):
+                return self.explicate_assign(rhs, lhs, cont, basic_blocks)
+            case Expr(value):
+                return self.explicate_effect(value, cont, basic_blocks)
+            case If(test, body, orelse):
+                goto_cont = create_block(cont, basic_blocks)
+
+                explicate_body = []
+                explicate_body += goto_cont
+                for s in reversed(body):
+                    explicate_body = self.explicate_stmt(
+                        s, explicate_body, basic_blocks
+                    )
+
+                explicate_orelse = []
+                explicate_orelse += goto_cont
+                for s in reversed(orelse):
+                    explicate_orelse = self.explicate_stmt(
+                        s, explicate_orelse, basic_blocks
+                    )
+
+                return self.explicate_pred(
+                    test, explicate_body, explicate_orelse, basic_blocks
+                )
+            case While(test, body, []):
+                goto_cont = create_block(cont, basic_blocks)
+
+                label = label_name(generate_name('loop'))
+                goto_loop = [Goto(label)]
+
+                explicate_body = goto_loop
+                for s in reversed(body):
+                    explicate_body = self.explicate_stmt(
+                        s, explicate_body, basic_blocks
+                    )
+
+                basic_blocks[label] = self.explicate_pred(
+                    test, explicate_body, goto_cont, basic_blocks
+                )
+
+                return goto_loop
+            case Collect(n):
+                return [Collect(n)] + cont
+            case _:
+                raise Exception('unhandled case in explicate_stmt: ' + repr(s))
+
+    def explicate_control(self, p: Module) -> CProgram:
+        match p:
+            case Module(body):
+                new_body = [Return(Constant(0))]
+                basic_blocks = {}
+                for s in reversed(body):
+                    new_body = self.explicate_stmt(s, new_body, basic_blocks)
+                basic_blocks[label_name('start')] = new_body
+                return CProgram(basic_blocks)
 
     ############################################################################
     # Select Instructions
