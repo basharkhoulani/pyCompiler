@@ -6,12 +6,24 @@ compiler = Compiler()
 
 input_file = "test.py"
 
-prog = open(input_file).read()
-# prog = '''
-# t1 = (1, 2 + 3 + input_int())
-# t2 = (t1, 2)
-# print(t2[0][1] + 1)
-# '''
+# prog = open(input_file).read()
+prog = '''
+t1 = ((7,),42)
+t2 = (t1,)
+
+if t1 is t2[0]:
+   print(1)
+else:
+   print(0)
+
+# prints 1
+   
+print(1 if t1[0][0] < 3 else t2[0][1])
+
+# prints 42
+
+# x = input_int() + 3
+'''
 
 print('=====')
 ast = parse(prog)
@@ -33,9 +45,9 @@ print('=====')
 ast = compiler.explicate_control(ast)
 print(ast)
 
-# print('=====')
-# ast = compiler.select_instructions(ast)
-# print(ast)
+print('=====')
+ast = compiler.select_instructions(ast)
+print(ast)
 
 # print('=====')
 # ast = compiler.assign_homes(ast)

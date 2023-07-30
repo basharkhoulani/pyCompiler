@@ -48,6 +48,8 @@ def cc(op):
             return 'g'
         case GtE():
             return 'ge'
+        case Is():
+            return 'e'
 
 class Compiler:
 
@@ -532,6 +534,163 @@ class Compiler:
     # Select Instructions
     ############################################################################
 
+    def select_arg(self, e: expr) -> arg:
+        match e:
+            case Constant(True):
+                return Immediate(1)
+            case Constant(False):
+                return Immediate(0)
+            case Constant(n):
+                return Immediate(n)
+            case Name(v):
+                return Variable(v)
+            case GlobalValue(v):
+                return Global(v)
+            case [arg]:
+                return self.select_arg(arg)
+            case _:
+                raise Exception('unhandled case in select_arg: ' + repr(e))
+
+    def select_assign(self, s: stmt) -> list[instr]:
+        result = []
+        match s:
+            case Assign([Name(var)], Compare(left, [op], [right])):
+                return [
+                    Instr('cmpq', [self.select_arg(right), self.select_arg(left)]),
+                    Instr('set' + cc(op), [ByteReg('al')]),
+                    Instr('movzbq', [ByteReg('al'), Variable(var)]),
+                ]
+            case Assign([Name(var)], UnaryOp(Not(), atm)):
+                arg = self.select_arg(atm)
+                lhs = Variable(var)
+                if lhs == arg:
+                    return [Instr('xorq', [Immediate(1), Variable(var)])]
+                else:
+                    return [
+                        Instr('movq', [self.select_arg(arg), Variable(var)]),
+                        Instr('xorq', [Immediate(1), Variable(var)]),
+                    ]
+            case Assign([Name(var)], BinOp(atm1, Add(), atm2)):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                lhs = Variable(var)
+                if arg1 == lhs:
+                    result.append(Instr('addq', [arg2, lhs]))
+                elif arg2 == lhs:
+                    result.append(Instr('addq', [arg1, lhs]))
+                else:
+                    result.append(Instr('movq', [arg1, lhs]))
+                    result.append(Instr('addq', [arg2, lhs]))
+            case Assign([Name(var)], BinOp(atm1, Sub(), atm2)):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                lhs = Variable(var)
+                if arg1 == lhs:
+                    result.append(Instr('subq', [arg2, lhs]))
+                elif arg2 == lhs:
+                    result.append(Instr('negq', [lhs]))
+                    result.append(Instr('addq', [arg1, lhs]))
+                else:
+                    result.append(Instr('movq', [arg1, lhs]))
+                    result.append(Instr('subq', [arg2, lhs]))
+            case Assign([Name(var)], UnaryOp(USub(), atm)):
+                arg = self.select_arg(atm)
+                result.append(Instr('movq', [arg, Variable(var)]))
+                result.append(Instr('negq', [Variable(var)]))
+            case Assign([Name(var)], Call(Name('input_int'), [])):
+                result.append(Callq(label_name('read_int'), 0))
+                result.append(Instr('movq', [Reg('rax'), Variable(var)]))
+            case Assign([Name(var)], Expr(Call(Name('len'), [atm]))):
+                # TODO
+                result.append(Instr('movq', [self.select_arg(atm), Reg('r11')]))
+                result.append(Instr('movq', [Deref('r11', 0), Variable(var)]))
+            case Assign([Name(var)], Allocate(n, t)):
+                # TODO
+                result.append(Instr('movq', [Immediate(n), Reg('r11')]))
+            case Assign([Subscript(atm1, Constant(n), Load())], Expr(Call(Name('len'), [atm2]))):
+                # TODO
+                result.append(Instr('movq', [self.select_arg(atm2), Reg('r11')]))
+                result.append(Instr('movq', [Deref('r11', 0), Deref('r11', 8 * (n+1))]))
+            case Assign([Subscript(atm1, Constant(n), Load())], Allocate(n2, t)):
+                # TODO
+                result.append(Instr('movq', [Immediate(n2), Reg('r11')]))
+                result.append(Instr('movq', [Deref('r11', 0), Deref('r11', 8 * (n+1))]))
+            case Assign([Subscript(atm1, Constant(n1), Load())], Subscript(atm2, Constant(n2), Load())):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                result.append(Instr('movq', [arg2, Reg('r11')]))
+                result.append(Instr('movq', [Deref('r11', 8 * (n2+1)), Reg('r12')]))
+                result.append(Instr('movq', [arg1, Reg('r11')]))
+                result.append(Instr('movq', [Reg('r12'), Deref('r11', 8 * (n1+1))]))
+            case Assign(atm1, Subscript(atm2, Constant(n), Load())):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                result.append(Instr('movq', [arg2, Reg('r11')]))
+                result.append(Instr('movq', [Deref('r11', 8 * (n+1)), arg1]))
+            case Assign([Subscript(atm1, Constant(n), Load())], atm2):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                result.append(Instr('movq', [arg1, Reg('r11')]))
+                result.append(Instr('movq', [arg2, Deref('r11', 8 * (n+1))]))
+            case Assign([Name(var)], atm):
+                arg = self.select_arg(atm)
+                result.append(Instr('movq', [arg, Variable(var)]))                
+            case _:
+                raise Exception('unhandled case in select_assign: ' + repr(s))
+        return result
+
+    def select_stmt(self, s: stmt) -> list[instr]:
+        match s:
+            case If(Compare(left, [op], [right]), [Goto(thn)], [Goto(els)]):
+                return [
+                    Instr('cmpq', [self.select_arg(right), self.select_arg(left)]),
+                    JumpIf(cc(op), thn),
+                    Jump(els),
+                ]
+                return result
+            case Goto(label):
+                return [Jump(label)]
+            case Return(arg):
+                return [
+                    Instr('movq', [self.select_arg(arg), Reg('rax')]),
+                    Jump('conclusion'),
+                ]
+            case Assign(_,_):
+                return self.select_assign(s)
+            case Expr(Call(Name('print'), [atm])):
+                arg = self.select_arg(atm)
+                return [
+                    Instr('movq', [arg, Reg('rdi')]),
+                    Callq(label_name('print_int'), 1),
+                ]
+            case Expr(Call(Name('input_int'), [])):
+                return [Callq(label_name('read_int'), 0)]
+            case Expr(Call(Name('len'), [atm])):
+                return [
+                    Instr('len', []),
+                ]
+            case Allocate(n, t):
+                return [
+                    Instr('alloc', []),
+                ]
+            case Collect(n):
+                return [
+                    Instr('collect', []),
+                ]
+            case _:
+                raise Exception('unhandled case in select_stmt: ' + repr(s))
+        return []
+
+    def select_instructions(self, p: Module) -> X86Program:
+        new_body = {}
+        for block_id, stmts in p.body.items():
+            instrs = []
+            for s in stmts:
+                s = self.select_stmt(s)
+                instrs += s
+            new_body[block_id] = instrs
+
+        return X86Program(new_body)
 
     ###########################################################################
     # Uncover Live
