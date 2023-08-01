@@ -1,35 +1,69 @@
 	.align 16
-block_213:
-    movq -2016(%rbp), %rdi
+block_184:
+    movq %rcx, %rdi
+    movq %rsi, -3208(%rbp)
+    movq %rdx, -3216(%rbp)
+    movq %r10, -3224(%rbp)
+    movq %r9, -3232(%rbp)
+    movq %r8, -3240(%rbp)
+    movq %rcx, -3248(%rbp)
     callq print_int
+    movq -3208(%rbp), %rsi
+    movq -3216(%rbp), %rdx
+    movq -3224(%rbp), %r10
+    movq -3232(%rbp), %r9
+    movq -3240(%rbp), %r8
+    movq -3248(%rbp), %rcx
     movq $0, %rax
     jmp conclusion
 
 	.align 16
-block_215:
-    movq -2024(%rbp), %rax
-    addq %rax, -2016(%rbp)
-    jmp loop_214
+block_186:
+    addq %rdx, %rcx
+    jmp loop_185
 
 	.align 16
-loop_214:
-    movq -2032(%rbp), %rax
-    cmpq %rax, -2016(%rbp)
-    jl block_215
-    jmp block_213
+loop_185:
+    cmpq %rsi, %rcx
+    jl block_186
+    jmp block_184
 
 	.align 16
 start:
+    movq %rsi, -3208(%rbp)
+    movq %rdx, -3216(%rbp)
+    movq %r10, -3224(%rbp)
+    movq %r9, -3232(%rbp)
+    movq %r8, -3240(%rbp)
+    movq %rcx, -3248(%rbp)
     callq read_int
-    movq %rax, -2016(%rbp)
-    movq $1, -2024(%rbp)
+    movq -3208(%rbp), %rsi
+    movq -3216(%rbp), %rdx
+    movq -3224(%rbp), %r10
+    movq -3232(%rbp), %r9
+    movq -3240(%rbp), %r8
+    movq -3248(%rbp), %rcx
+    movq %rax, %rcx
+    movq $1, %rdx
+    movq %rsi, -3208(%rbp)
+    movq %rdx, -3216(%rbp)
+    movq %r10, -3224(%rbp)
+    movq %r9, -3232(%rbp)
+    movq %r8, -3240(%rbp)
+    movq %rcx, -3248(%rbp)
     callq read_int
-    movq %rax, -2032(%rbp)
-    jmp loop_214
+    movq -3208(%rbp), %rsi
+    movq -3216(%rbp), %rdx
+    movq -3224(%rbp), %r10
+    movq -3232(%rbp), %r9
+    movq -3240(%rbp), %r8
+    movq -3248(%rbp), %rcx
+    movq %rax, %rsi
+    jmp loop_185
 
 	.align 16
 conclusion:
-    addq $2032, %rsp
+    addq $3280, %rsp
     popq %rbp
     retq 
 
@@ -38,7 +72,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $2032, %rsp
+    subq $3280, %rsp
     movq $16384, %rdi
     movq $16384, %rsi
     callq initialize

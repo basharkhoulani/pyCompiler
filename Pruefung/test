@@ -1,0 +1,2 @@
+#!/bin/bash
+clear && python3 compiler_tup.py test.py && gcc -m64 runtime.c test.py.s -o main && ./main

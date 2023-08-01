@@ -1,53 +1,106 @@
 	.align 16
 start:
+    movq %rsi, -1048(%rbp)
+    movq %rdx, -1056(%rbp)
+    movq %r10, -1064(%rbp)
+    movq %r9, -1072(%rbp)
+    movq %r8, -1080(%rbp)
+    movq %rcx, -1088(%rbp)
     callq read_int
-    movq %rax, -1240(%rbp)
-    movq $1, -1248(%rbp)
-    movq -1240(%rbp), %rax
-    movq %rax, -1256(%rbp)
-    movq -1248(%rbp), %rax
-    addq %rax, -1256(%rbp)
-    movq -1256(%rbp), %rdi
+    movq -1048(%rbp), %rsi
+    movq -1056(%rbp), %rdx
+    movq -1064(%rbp), %r10
+    movq -1072(%rbp), %r9
+    movq -1080(%rbp), %r8
+    movq -1088(%rbp), %rcx
+    movq %rax, %rdx
+    movq $1, %rsi
+    movq %rdx, %rcx
+    addq %rsi, %rcx
+    movq %rcx, %rdi
+    movq %rsi, -1048(%rbp)
+    movq %rdx, -1056(%rbp)
+    movq %r10, -1064(%rbp)
+    movq %r9, -1072(%rbp)
+    movq %r8, -1080(%rbp)
+    movq %rcx, -1088(%rbp)
     callq print_int
+    movq -1048(%rbp), %rsi
+    movq -1056(%rbp), %rdx
+    movq -1064(%rbp), %r10
+    movq -1072(%rbp), %r9
+    movq -1080(%rbp), %r8
+    movq -1088(%rbp), %rcx
+    movq %rsi, -1048(%rbp)
+    movq %rdx, -1056(%rbp)
+    movq %r10, -1064(%rbp)
+    movq %r9, -1072(%rbp)
+    movq %r8, -1080(%rbp)
+    movq %rcx, -1088(%rbp)
     callq read_int
-    movq %rax, -1264(%rbp)
-    movq $1, -1272(%rbp)
-    movq -1240(%rbp), %rax
-    movq %rax, -1280(%rbp)
-    movq -1264(%rbp), %rax
-    addq %rax, -1280(%rbp)
-    movq -1280(%rbp), %rax
-    movq %rax, -1288(%rbp)
-    movq -1272(%rbp), %rax
-    addq %rax, -1288(%rbp)
-    movq -1288(%rbp), %rdi
+    movq -1048(%rbp), %rsi
+    movq -1056(%rbp), %rdx
+    movq -1064(%rbp), %r10
+    movq -1072(%rbp), %r9
+    movq -1080(%rbp), %r8
+    movq -1088(%rbp), %rcx
+    movq %rax, %r8
+    movq $1, %r9
+    movq %rdx, %rcx
+    addq %r8, %rcx
+    addq %r9, %rcx
+    movq %rcx, %rdi
+    movq %rsi, -1048(%rbp)
+    movq %rdx, -1056(%rbp)
+    movq %r10, -1064(%rbp)
+    movq %r9, -1072(%rbp)
+    movq %r8, -1080(%rbp)
+    movq %rcx, -1088(%rbp)
     callq print_int
+    movq -1048(%rbp), %rsi
+    movq -1056(%rbp), %rdx
+    movq -1064(%rbp), %r10
+    movq -1072(%rbp), %r9
+    movq -1080(%rbp), %r8
+    movq -1088(%rbp), %rcx
+    movq %rsi, -1048(%rbp)
+    movq %rdx, -1056(%rbp)
+    movq %r10, -1064(%rbp)
+    movq %r9, -1072(%rbp)
+    movq %r8, -1080(%rbp)
+    movq %rcx, -1088(%rbp)
     callq read_int
-    movq %rax, -1296(%rbp)
-    movq -1240(%rbp), %rax
-    movq %rax, -1304(%rbp)
-    movq -1248(%rbp), %rax
-    addq %rax, -1304(%rbp)
-    movq -1304(%rbp), %rax
-    movq %rax, -1312(%rbp)
-    movq -1264(%rbp), %rax
-    addq %rax, -1312(%rbp)
-    movq -1312(%rbp), %rax
-    movq %rax, -1320(%rbp)
-    movq -1272(%rbp), %rax
-    addq %rax, -1320(%rbp)
-    movq -1320(%rbp), %rax
-    movq %rax, -1328(%rbp)
-    movq -1296(%rbp), %rax
-    addq %rax, -1328(%rbp)
-    movq -1328(%rbp), %rdi
+    movq -1048(%rbp), %rsi
+    movq -1056(%rbp), %rdx
+    movq -1064(%rbp), %r10
+    movq -1072(%rbp), %r9
+    movq -1080(%rbp), %r8
+    movq -1088(%rbp), %rcx
+    movq %rax, %rcx
+    addq %rsi, %rdx
+    addq %r8, %rdx
+    addq %r9, %rdx
+    addq %rcx, %rdx
+    movq %rdx, %rdi
+    movq %rsi, -1048(%rbp)
+    movq %rdx, -1056(%rbp)
+    movq %r10, -1064(%rbp)
+    movq %r9, -1072(%rbp)
+    movq %r8, -1080(%rbp)
+    movq %rcx, -1088(%rbp)
     callq print_int
+    movq -1048(%rbp), %rsi
+    movq -1056(%rbp), %rdx
+    movq -1064(%rbp), %r10
+    movq -1072(%rbp), %r9
+    movq -1080(%rbp), %r8
+    movq -1088(%rbp), %rcx
     movq $0, %rax
     jmp conclusion
 
 	.align 16
 conclusion:
-    addq $1328, %rsp
+    addq $1120, %rsp
     popq %rbp
     retq 
 
@@ -56,7 +109,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $1328, %rsp
+    subq $1120, %rsp
     movq $16384, %rdi
     movq $16384, %rsi
     callq initialize

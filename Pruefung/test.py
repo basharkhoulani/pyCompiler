@@ -1,15 +1,7 @@
-t1 = ((7,),42)
-t2 = (t1,)
+t0 = (1,)
+x = len(t0) == 0
+t = (1 if x else 2, (3, 4))
 
-if t1 is t2[0]:
-   print(len(t1))
-else:
-   print(0)
-
-# prints 1
-   
-print(1 if t1[0][0] < 3 else t2[0][1])
-
-# prints 42
-
-# x = input_int() + 3
+print(1 if t[0] == 2 else 0)
+print(1 if t[1][0] == 3 else 0)
+print(1 if t[1][1] == 4 else 0)

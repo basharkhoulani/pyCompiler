@@ -6,7 +6,7 @@ from utils import *
 from dataflow_analysis import analyze_dataflow
 import copy
 from type_check_Ltup import TypeCheckLtup
-import type_check_Ctup
+from type_check_Ctup import TypeCheckCtup
 
 Binding = tuple[Name, expr]
 Temporaries = list[Binding]
@@ -51,7 +51,52 @@ def cc(op):
         case Is():
             return 'e'
 
+label = lambda v: v.id if isinstance(v, Reg) else str(v)
+
+caller_saved_registers: set[location] = set(
+    [
+        Reg('rax'),
+        Reg('rcx'),
+        Reg('rdx'),
+        Reg('rsi'),
+        Reg('rdi'),
+        Reg('r8'),
+        Reg('r9'),
+        Reg('r10'),
+        Reg('r11'),
+    ]
+)
+
+callee_saved_registers: set[location] = set(
+    [Reg('rsp'), Reg('rbp'), Reg('rbx'), Reg('r12'), Reg('r13'), Reg('r14'), Reg('r15')]
+)
+
+registers_for_coloring = [
+    Reg('rcx'),
+    Reg('rdx'),
+    Reg('rsi'),
+    Reg('r8'),
+    Reg('r9'),
+    Reg('r10'),
+]
+
+
+def get_loc_from_arg(a: arg) -> set[location]:
+    match a:
+        case Reg(_):
+            return set([a])
+        case Variable(_):
+            return set([a])
+        case ByteReg(_):
+            return set([a])
+        case _:
+            return set([])
+
 class Compiler:
+    
+    env = {}
+    stack_size = 0
+    root_stack_size = 0
 
     def tmps_to_stmts(self, tmps: Temporaries) -> list[stmt]:
         result = []
@@ -162,7 +207,7 @@ class Compiler:
                 
                 # 3: Allocate
                 tup_name = Name(generate_name('tup'))
-                tup = Assign([tup_name], Allocate(Constant(len(nexprs)), e.has_type))
+                tup = Assign([tup_name], Allocate(len(nexprs), e.has_type))
                 
                 # 4: Assign tuple to pointer
                 tup_assigns: list[stmt] = []
@@ -187,6 +232,9 @@ class Compiler:
                 return Expr(self.expose_allocation_expr(expr))
             case Assign([Name(var)], expr):
                 return Assign([Name(var)], self.expose_allocation_expr(expr))
+            case Assign([Subscript(expr, Constant(index), ls)], expr2):
+                return Assign([Subscript(self.expose_allocation_expr(expr), Constant(index), ls)], 
+                              self.expose_allocation_expr(expr2))
             case If(test, thn, els):
                 return If(
                     self.expose_allocation_expr(test),
@@ -326,12 +374,6 @@ class Compiler:
                     )
                 return (e, [])
             case GlobalValue(v):
-                if need_atomic:
-                    fresh_tmp = get_fresh_tmp()
-                    return (
-                        Name(fresh_tmp),
-                        [(Name(fresh_tmp), GlobalValue(v))],
-                    )
                 return (e, [])
             case Expr(expr):
                 return self.rco_exp(expr, need_atomic)
@@ -546,13 +588,13 @@ class Compiler:
             case Name(v):
                 return Variable(v)
             case GlobalValue(v):
-                return Global(v)
+                return x86_ast.Global(v)
             case [arg]:
                 return self.select_arg(arg)
             case _:
                 raise Exception('unhandled case in select_arg: ' + repr(e))
 
-    def select_assign(self, s: stmt) -> list[instr]:
+    def select_assign(self, s: stmt) -> list[Instr]:
         result = []
         match s:
             case Assign([Name(var)], Compare(left, [op], [right])):
@@ -602,10 +644,15 @@ class Compiler:
                 result.append(Callq(label_name('read_int'), 0))
                 result.append(Instr('movq', [Reg('rax'), Variable(var)]))
             case Assign([Name(var)], Call(Name('len'), [atm])):
-                # TODO
-                result.append(Instr('movq', [self.select_arg(atm), Reg('r11')]))
-                result.append(Instr('movq', [Deref('r11', 0), Variable(var)]))
-            case Assign([Name(var)], Allocate(Constant(n), t)):
+                bitMask = 0b1111110 # bit mask for vector length
+                return [
+                    Instr('movq', [self.select_arg(atm), Reg('r11')]),
+                    Instr('movq', [Deref('r11', 0), Reg('r11')]),
+                    Instr('andq', [Immediate(bitMask), Reg('r11')]),
+                    Instr('sarq', [Immediate(1), Reg('r11')]),
+                    Instr('movq', [Reg('r11'), self.select_arg(Name(var))])
+                ]
+            case Assign([Name(var)], Allocate(n, t)):
                 unused = 0b000000   #  6 bits unused
                 mask   = 0          # 51 bits for mask (1 ptr, 0 data)
                 length = n          #  6 bits for length
@@ -630,20 +677,21 @@ class Compiler:
                 tag |= fwd
                             
                 return [
-                    Instr('movq', [Global('free_ptr'), Reg('r11')]),
-                    Instr('addq', [Immediate(8 * (n + 1)), Global('free_ptr')]),
+                    Instr('movq', [x86_ast.Global('free_ptr'), Reg('r11')]),
+                    Instr('addq', [Immediate(8 * (n + 1)), x86_ast.Global('free_ptr')]),
                     Instr('movq', [Immediate(tag), Deref('r11', 0)]),
                     Instr('movq', [Reg('r11'), self.select_arg(Name(var))]),
                 ]
-                result.append(Instr('movq', [Immediate(n), Reg('r11')]))
-            case Assign([Subscript(atm1, Constant(n), ls)], Expr(Call(Name('len'), [atm2]))):
-                # TODO
-                result.append(Instr('movq', [self.select_arg(atm2), Reg('r11')]))
-                result.append(Instr('movq', [Deref('r11', 0), Deref('r11', 8 * (n+1))]))
-            case Assign([Subscript(atm1, Constant(n), ls)], Allocate(n2, t)):
-                # TODO
-                result.append(Instr('movq', [Immediate(n2), Reg('r11')]))
-                result.append(Instr('movq', [Deref('r11', 0), Deref('r11', 8 * (n+1))]))
+            case Assign([Subscript(atm1, Constant(n), ls)], Call(Name('len'), [atm2])):
+                bitMask = 0b1111110 # bit mask for vector length
+                return [
+                    Instr('movq', [self.select_arg(atm2), Reg('r11')]),
+                    Instr('movq', [Deref('r11', 0), Reg('r11')]),
+                    Instr('andq', [Immediate(bitMask), Reg('r11')]),
+                    Instr('sarq', [Immediate(1), Reg('r11')]),
+                    Instr('movq', [self.select_arg(atm1), Reg('r12')]),
+                    Instr('movq', [Reg('r11'), Deref('r12', 8 * (n + 1))]),
+                ]
             case Assign([Subscript(atm1, Constant(n1), ls)], Subscript(atm2, Constant(n2), ls2)):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
@@ -708,6 +756,9 @@ class Compiler:
                 raise Exception('unhandled case in select_stmt: ' + repr(s))
 
     def select_instructions(self, p: Module) -> X86Program:
+        TypeCheckCtup().type_check(p)
+        self.env = p.var_types
+        
         new_body = {}
         for block_id, stmts in p.body.items():
             instrs = []
@@ -722,31 +773,351 @@ class Compiler:
     # Uncover Live
     ###########################################################################
 
+    def read_vars(self, i: instr) -> set[location]:
+        match i:
+            case Instr('movq', [s, d]) | Instr('movzbq', [s, d]):
+                return get_loc_from_arg(s)
+            case Instr('addq', [s, d]) | Instr('subq', [s, d]) | Instr('xorq', [s, d]):
+                return get_loc_from_arg(s) | get_loc_from_arg(d)
+            case Instr('cmpq', [s, d]):
+                return get_loc_from_arg(s) | get_loc_from_arg(d)
+            case Instr('negq', [d]):
+                return get_loc_from_arg(d)
+            case Instr('pushq', [d]):
+                return get_loc_from_arg(d)
+            case Callq(_, n):
+                return set([Reg('rdi')]) if n == 1 else set()
+            case _:
+                return set()
+
+    def write_vars(self, i: instr) -> set[location]:
+        match i:
+            case Instr('movq', [s, d]) | Instr('movzbq', [s, d]):
+                return get_loc_from_arg(d)
+            case Instr('addq', [s, d]) | Instr('subq', [s, d]) | Instr('xorq', [s, d]):
+                return get_loc_from_arg(d)
+            case Instr(op, [d]) if 'set' in op:
+                return get_loc_from_arg(d)
+            case Instr('negq', [d]) | Instr('pushq', [d]):
+                return get_loc_from_arg(d)
+            case Callq(_, n):
+                return set([Reg('rax')])
+            case _:
+                return set()
+
+    def control_flow_graph(
+        self, basic_blocks: dict[str, list[instr]]
+    ) -> DirectedAdjList:
+        cfg = DirectedAdjList()
+
+        for block_id, block_items in basic_blocks.items():
+            for i in block_items:
+                match i:
+                    case Jump(label):
+                        cfg.add_edge(block_id, label)
+                    case JumpIf(_, label):
+                        cfg.add_edge(block_id, label)
+
+        return cfg
+
+    def transfer(self, basic_blocks, block_id, l_after: set[location]):
+        if block_id == 'conclusion':
+            l_before = set([Reg('rax'), Reg('rsp')])
+        else:
+            l_before = set()
+
+        for instr in reversed(basic_blocks[block_id]):
+            self.instr_to_lafter[instr] = l_after
+            l_before = (l_after - self.write_vars(instr)) | self.read_vars(instr)
+            l_after = l_before
+
+        self.block_to_lafter[block_id] = l_after
+        return l_before
+
+    def uncover_live_blocks(self, basic_blocks) -> dict[instr, set[location]]:
+        cfg = self.control_flow_graph(basic_blocks)
+
+        self.block_to_lafter = {}
+        self.instr_to_lafter = {}
+
+        analyze_dataflow(
+            transpose(cfg),
+            lambda label, l_after: self.transfer(basic_blocks, label, l_after),
+            set(),
+            lambda a, b: a.union(b),
+        )
+
+        return self.instr_to_lafter
 
     ############################################################################
     # Build Interference
     ############################################################################
 
+    def build_interference(self, p: X86Program, live_blocks) -> UndirectedAdjList:
+        graph = UndirectedAdjList(vertex_label=label)
+
+        for (_, vs) in live_blocks.items():
+            for v in vs:
+                graph.add_vertex(v)
+
+        for block_id, instrs in p.body.items():
+            for instr in instrs:
+                l_after = live_blocks[instr]
+                match instr:
+                    case Instr('movq', [s, d]) | Instr('movzbq', [s, d]):
+                        for v in l_after:
+                            if v != s and v != d and not graph.has_edge(v, d):
+                                graph.add_edge(v, d)
+                    case _:
+                        for v in l_after:
+                            for d in self.write_vars(instr):
+                                if v != d and not graph.has_edge(v, d):
+                                    graph.add_edge(v, d)
+
+        return graph
 
     ############################################################################
     # Allocate Registers
     ############################################################################
 
-  
+    # select spill candidate by most neighbors
+    def find_spill(self, graph: UndirectedAdjList) -> location:
+        most_neighbors = list(graph.vertices())[0]
+        for v in graph.vertices():
+            if len(graph.adjacent(v)) > len(graph.adjacent(most_neighbors)):
+                most_neighbors = v
+
+        return v
+
+    def color_graph(
+        self, graph: UndirectedAdjList, colors: set[location]
+    ) -> dict[Variable, arg]:
+        coloring = {}
+
+        orig_graph = copy.deepcopy(graph)
+
+        k = len(colors)
+        stack = []
+
+        # for all vertices in the graph, select a vertex and remove it and put it on stack
+        while len(graph.vertices()) > 0:
+            # get vertex v with neighbors(v) < k
+            v = next(
+                filter(lambda v: len(graph.adjacent(v)) < k, graph.vertices()), None
+            )
+
+            # could not find vertex with neighbors(v) < k
+            if v is None:
+                potential_spill = self.find_spill(graph)
+                graph.remove_vertex(potential_spill)
+                stack.append(potential_spill)
+            # found vertex
+            else:
+                graph.remove_vertex(v)
+                stack.append(v)
+
+        # for all vertices on stack, assign a color to them if possible
+        while len(stack) > 0:
+            d = stack.pop()
+
+            if isinstance(d, Reg):
+                continue
+
+            neighbors = orig_graph.adjacent(d)
+
+            # find available color not assigned to neighbors(d)
+            color = next(
+                filter(
+                    lambda c: not c in [coloring.get(u, None) for u in neighbors],
+                    colors,
+                ),
+                None,
+            )
+
+            # if colorable, assign the color
+            if color != None:
+                coloring[d] = color
+
+        return coloring
+
     ############################################################################
     # Assign Homes
     ############################################################################
 
+    def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
+        match a:
+            case Variable(_):
+                if a not in home:
+                    self.stack_size += 8
+                    home[a] = Deref('rbp', -self.stack_size)
+                return home[a]
+            case _:
+                return a
+
+    def assign_homes_instr(self, i: instr, home: dict[Variable, arg]) -> list[instr]:
+        match i:
+            case Instr(op, [arg1, arg2]):
+                return [Instr(
+                    op,
+                    [
+                        self.assign_homes_arg(arg1, home),
+                        self.assign_homes_arg(arg2, home),
+                    ],
+                )]
+            case Instr(op, [arg1]):
+                return [Instr(op, [self.assign_homes_arg(arg1, home)])]
+            case Callq('read_int', 0) | Callq('print_int', 1):
+                return [i]
+            case Callq('collect', 1):
+                movRootStack = []
+                
+                self.root_stack_size = 0
+                for var in home:
+                    if isinstance(var, Variable):
+                        varName = var.id
+                        varType = self.env[varName]
+                        if isinstance(varType, TupleType):
+                            movRootStack += [Instr('movq', [home[var], Deref('r15', -8 * self.root_stack_size)])]
+                            self.root_stack_size += 1
+                
+                return movRootStack + [i];
+            case _:
+                return [i]
+
+    def assign_homes_instrs(self, ss: list[instr], home: dict[Variable, arg]) -> list[instr]:
+        result = []
+        for i in ss:
+            result += self.assign_homes_instr(i, home)
+        return result
+
+    def assign_homes(self, p: X86Program) -> X86Program:
+        # for liveness analysis there needs to be a dummy block for conclusion
+        p.body['conclusion'] = []
+
+        live_blocks = self.uncover_live_blocks(p.body)
+        rig = self.build_interference(p, live_blocks)
+        home = self.color_graph(rig, registers_for_coloring)
+
+        new_body = {}
+        for block_id, instrs in p.body.items():
+            new_body[block_id] = self.assign_homes_instrs(instrs, home)
+
+        return X86Program(new_body)
 
     ###########################################################################
     # Patch Instructions
     ###########################################################################
 
+    def save(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        # save all variables onto the stack
+        for reg in registers:
+            # except for rax and rdi
+            if isinstance(reg, Reg) and reg in caller_saved_registers and reg in registers_for_coloring:
+                result.append(Instr('movq', [reg, Deref('rbp', -(self.stack_before + 8 * index))]))
+                index += 1
+        return result
+
+    def restore(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        # restore all variables from the stack
+        for reg in registers:
+            # except for rax and rdi
+            if isinstance(reg, Reg) and reg in caller_saved_registers and reg in registers_for_coloring:
+                result.append(Instr('movq', [Deref('rbp', -(self.stack_before + 8 * index)), reg]))
+                index += 1
+        return result
+
+    def patch_instr(self, i: instr) -> list[instr]:
+        match i:
+            case Instr('cmpq', [arg, Immediate(n)]):
+                return [
+                    Instr('movq', [Immediate(n), Reg('rax')]),
+                    Instr('cmpq', [arg, Reg('rax')]),
+                ]
+            case Instr('movzbq', [arg, Deref(reg, offset)]):
+                return [
+                    Instr('movzbq', [arg, Reg('rax')]),
+                    Instr('movq', [Reg('rax'), Deref(reg, offset)]),
+                ]
+            case Instr('movq', [arg1, arg2]) if arg1 == arg2:
+                return []
+            case Instr(op, [Deref(reg, offset), Deref(reg2, offset2)]):
+                return [
+                    Instr('movq', [Deref(reg, offset), Reg('rax')]),
+                    Instr(op, [Reg('rax'), Deref(reg2, offset2)]),
+                ]
+            case Callq(name, n):
+                return self.save(caller_saved_registers) + [i] + self.restore(caller_saved_registers)
+            case _:
+                return [i]
+
+    def patch_instrs(self, instrs: list[instr]) -> list[instr]:
+        result = []
+        for i in instrs:
+            result += self.patch_instr(i)
+        return result
+
+    def patch_instructions(self, p: X86Program) -> X86Program:
+        new_body = {}
+        self.stack_before = self.stack_size
+
+        for block_id, block_items in p.body.items():
+            new_body[block_id] = self.patch_instrs(block_items)
+
+        return X86Program(new_body)
 
     ###########################################################################
     # Prelude & Conclusion
     ###########################################################################
 
+    def prelude_and_conclusion(self, p: X86Program) -> X86Program:
+        adjust_stack_size = (
+            self.stack_size if self.stack_size % 16 == 0 else self.stack_size + 8
+        )
+
+        prelude = [
+            Instr("pushq", [Reg("rbp")]),
+            Instr("movq", [Reg("rsp"), Reg("rbp")]),
+        ]
+        
+        if adjust_stack_size > 0:
+            prelude.append(Instr('subq', [Immediate(adjust_stack_size), Reg('rsp')]))
+            
+        prelude += [
+            Instr('movq', [Immediate(16384), Reg('rdi')]),
+            Instr('movq', [Immediate(16384), Reg('rsi')]),
+            Callq('initialize', 0),
+            Instr('movq', [x86_ast.Global('rootstack_begin'), Reg('r15')]),
+        ]
+        
+        for i in range(self.root_stack_size):
+            prelude.append(Instr('movq', [Immediate(0), Deref('r15', 8 * i)]))
+        
+        if self.root_stack_size > 0:
+            prelude += [
+                Instr('addq', [Immediate(self.root_stack_size * 8), Reg('r15')])
+            ]
+
+        p.body['main'] = prelude + [Jump('start')]
+        conclusion = [Instr('popq', [Reg('rbp')]), Instr('retq', [])]
+
+        if self.root_stack_size > 0:
+            conclusion.insert(
+                0, Instr('subq', [Immediate(self.root_stack_size * 8), Reg('r15')])
+            )
+
+        if adjust_stack_size > 0:
+            conclusion.insert(
+                0, Instr('addq', [Immediate(adjust_stack_size), Reg('rsp')])
+            )
+
+        p.body['conclusion'] = conclusion
+        return X86Program(p.body)
 
     ##################################################
     # Compiler

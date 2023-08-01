@@ -8,23 +8,7 @@ input_file = "test.py"
 
 # prog = open(input_file).read()
 prog = '''
-t1 = (42, (7,))
-
-# t1 = ((7,),42)
-# t2 = (t1,)
-
-# if t1 is t2[0]:
-#    print(len(t1))
-# else:
-#    print(0)
-
-# # prints 1
-   
-# print(1 if t1[0][0] < 3 else t2[0][1])
-
-# # prints 42
-
-# # x = input_int() + 3
+t = (1, 2, 3)
 '''
 
 print('PARSE =====')
@@ -51,10 +35,14 @@ print('SELECT =====')
 ast = compiler.select_instructions(ast)
 print(ast)
 
-# print('=====')
-# ast = compiler.assign_homes(ast)
-# print(ast)
+print('HOMES =====')
+ast = compiler.assign_homes(ast)
+print(ast)
 
-# print('=====')
-# ast = compiler.patch_instructions(ast)
-# print(ast)
+print('PATCH =====')
+ast = compiler.patch_instructions(ast)
+print(ast)
+
+print('PREL CONCL =====')
+ast = compiler.prelude_and_conclusion(ast)
+print(ast)

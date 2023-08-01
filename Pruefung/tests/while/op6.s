@@ -1,98 +1,110 @@
 	.align 16
-block_180:
+block_205:
     movq $0, %rdi
+    movq %rsi, -3688(%rbp)
+    movq %rdx, -3696(%rbp)
+    movq %r10, -3704(%rbp)
+    movq %r9, -3712(%rbp)
+    movq %r8, -3720(%rbp)
+    movq %rcx, -3728(%rbp)
     callq print_int
+    movq -3688(%rbp), %rsi
+    movq -3696(%rbp), %rdx
+    movq -3704(%rbp), %r10
+    movq -3712(%rbp), %r9
+    movq -3720(%rbp), %r8
+    movq -3728(%rbp), %rcx
     movq $0, %rax
     jmp conclusion
 
 	.align 16
-block_181:
-    movq $1, -1904(%rbp)
-    jmp block_180
+block_206:
+    movq $1, %rcx
+    jmp block_205
 
 	.align 16
-block_182:
-    movq $0, -1904(%rbp)
-    jmp block_180
+block_207:
+    movq $0, %rcx
+    jmp block_205
 
 	.align 16
-block_183:
+block_208:
     movq $1, %rax
     cmpq $0, %rax
-    je block_181
-    jmp block_182
+    je block_206
+    jmp block_207
 
 	.align 16
-block_184:
-    movq $1, -1904(%rbp)
-    jmp block_183
+block_209:
+    movq $1, %rcx
+    jmp block_208
 
 	.align 16
-block_185:
-    movq $0, -1904(%rbp)
-    jmp block_183
+block_210:
+    movq $0, %rcx
+    jmp block_208
 
 	.align 16
-block_186:
+block_211:
     movq $1, %rax
     cmpq $0, %rax
-    jle block_184
-    jmp block_185
+    jle block_209
+    jmp block_210
 
 	.align 16
-block_187:
-    movq $1, -1904(%rbp)
-    jmp block_186
+block_212:
+    movq $1, %rcx
+    jmp block_211
 
 	.align 16
-block_188:
-    movq $0, -1904(%rbp)
-    jmp block_186
+block_213:
+    movq $0, %rcx
+    jmp block_211
 
 	.align 16
-block_189:
+block_214:
     movq $1, %rax
     cmpq $0, %rax
-    jl block_187
-    jmp block_188
+    jl block_212
+    jmp block_213
 
 	.align 16
-block_190:
-    movq $1, -1904(%rbp)
-    jmp block_189
+block_215:
+    movq $1, %rcx
+    jmp block_214
 
 	.align 16
-block_191:
-    movq $0, -1904(%rbp)
-    jmp block_189
+block_216:
+    movq $0, %rcx
+    jmp block_214
 
 	.align 16
-block_192:
+block_217:
     movq $0, %rax
     cmpq $1, %rax
-    jge block_190
-    jmp block_191
+    jge block_215
+    jmp block_216
 
 	.align 16
-block_193:
-    movq $1, -1904(%rbp)
-    jmp block_192
+block_218:
+    movq $1, %rcx
+    jmp block_217
 
 	.align 16
-block_194:
-    movq $0, -1904(%rbp)
-    jmp block_192
+block_219:
+    movq $0, %rcx
+    jmp block_217
 
 	.align 16
 start:
     movq $0, %rax
     cmpq $1, %rax
-    jg block_193
-    jmp block_194
+    jg block_218
+    jmp block_219
 
 	.align 16
 conclusion:
-    addq $1904, %rsp
+    addq $3760, %rsp
     popq %rbp
     retq 
 
@@ -101,7 +113,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $1904, %rsp
+    subq $3760, %rsp
     movq $16384, %rdi
     movq $16384, %rsi
     callq initialize
