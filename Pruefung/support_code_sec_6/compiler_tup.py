@@ -656,21 +656,217 @@ class Compiler:
     # Uncover Live
     ###########################################################################
 
+    def read_vars(self, i: instr) -> set[location]:
+        match i:
+            case Instr('movq', [s, d]) | Instr('movzbq', [s, d]):
+                return get_loc_from_arg(s)
+            case Instr('addq', [s, d]) | Instr('subq', [s, d]) | Instr('xorq', [s, d]):
+                return get_loc_from_arg(s) | get_loc_from_arg(d)
+            case Instr('cmpq', [s, d]):
+                return get_loc_from_arg(s) | get_loc_from_arg(d)
+            case Instr('negq', [d]):
+                return get_loc_from_arg(d)
+            case Instr('pushq', [d]):
+                return get_loc_from_arg(d)
+            case Callq(_, n):
+                return set([Reg('rdi')]) if n == 1 else set()
+            case _:
+                return set()
+
+    def write_vars(self, i: instr) -> set[location]:
+        match i:
+            case Instr('movq', [s, d]) | Instr('movzbq', [s, d]):
+                return get_loc_from_arg(d)
+            case Instr('addq', [s, d]) | Instr('subq', [s, d]) | Instr('xorq', [s, d]):
+                return get_loc_from_arg(d)
+            case Instr(op, [d]) if 'set' in op:
+                return get_loc_from_arg(d)
+            case Instr('negq', [d]) | Instr('pushq', [d]):
+                return get_loc_from_arg(d)
+            case Callq(_, n):
+                return set([Reg('rax')])
+            case _:
+                return set()
+
+    def control_flow_graph(
+            self, basic_blocks: dict[str, list[instr]]
+    ) -> DirectedAdjList:
+        cfg = DirectedAdjList()
+
+        for block_id, block_items in basic_blocks.items():
+            for i in block_items:
+                match i:
+                    case Jump(label):
+                        cfg.add_edge(block_id, label)
+                    case JumpIf(_, label):
+                        cfg.add_edge(block_id, label)
+
+        return cfg
+
+    def transfer(self, basic_blocks, block_id, l_after: set[location]):
+        if block_id == 'conclusion':
+            l_before = set([Reg('rax'), Reg('rsp')])
+        else:
+            l_before = set()
+
+        for instr in reversed(basic_blocks[block_id]):
+            self.instr_to_lafter[instr] = l_after
+            l_before = (l_after - self.write_vars(instr)) | self.read_vars(instr)
+            l_after = l_before
+
+        self.block_to_lafter[block_id] = l_after
+        return l_before
+
+    def uncover_live_blocks(self, basic_blocks) -> dict[instr, set[location]]:
+        cfg = self.control_flow_graph(basic_blocks)
+
+        self.block_to_lafter = {}
+        self.instr_to_lafter = {}
+
+        analyze_dataflow(
+            transpose(cfg),
+            lambda label, l_after: self.transfer(basic_blocks, label, l_after),
+            set(),
+            lambda a, b: a.union(b),
+        )
+
+        return self.instr_to_lafter
 
     ############################################################################
     # Build Interference
     ############################################################################
 
+    def build_interference(self, p: X86Program, live_blocks) -> UndirectedAdjList:
+        graph = UndirectedAdjList(vertex_label=label)
+
+        for (_, vs) in live_blocks.items():
+            for v in vs:
+                graph.add_vertex(v)
+
+        for block_id, instrs in p.body.items():
+            for instr in instrs:
+                l_after = live_blocks[instr]
+                match instr:
+                    case Instr('movq', [s, d]) | Instr('movzbq', [s, d]):
+                        for v in l_after:
+                            if v != s and v != d and not graph.has_edge(v, d):
+                                graph.add_edge(v, d)
+                    case _:
+                        for v in l_after:
+                            for d in self.write_vars(instr):
+                                if v != d and not graph.has_edge(v, d):
+                                    graph.add_edge(v, d)
+
+        return graph
 
     ############################################################################
     # Allocate Registers
     ############################################################################
 
+    def find_spill(self, graph: UndirectedAdjList) -> location:
+        most_neighbors = list(graph.vertices())[0]
+        for v in graph.vertices():
+            if len(graph.adjacent(v)) > len(graph.adjacent(most_neighbors)):
+                most_neighbors = v
+
+        return v
+
+    def color_graph(
+        self, graph: UndirectedAdjList, colors: set[location]
+    ) -> dict[Variable, arg]:
+        coloring = {}
+
+        orig_graph = copy.deepcopy(graph)
+
+        k = len(colors)
+        stack = []
+
+        # for all vertices in the graph, select a vertex and remove it and put it on stack
+        while len(graph.vertices()) > 0:
+            # get vertex v with neighbors(v) < k
+            v = next(
+                filter(lambda v: len(graph.adjacent(v)) < k, graph.vertices()), None
+            )
+
+            # could not find vertex with neighbors(v) < k
+            if v is None:
+                potential_spill = self.find_spill(graph)
+                graph.remove_vertex(potential_spill)
+                stack.append(potential_spill)
+            # found vertex
+            else:
+                graph.remove_vertex(v)
+                stack.append(v)
+
+        # for all vertices on stack, assign a color to them if possible
+        while len(stack) > 0:
+            d = stack.pop()
+
+            if isinstance(d, Reg):
+                continue
+
+            neighbors = orig_graph.adjacent(d)
+
+            # find available color not assigned to neighbors(d)
+            color = next(
+                filter(
+                    lambda c: not c in [coloring.get(u, None) for u in neighbors],
+                    colors,
+                ),
+                None,
+            )
+
+            # if colorable, assign the color
+            if color != None:
+                coloring[d] = color
+
+        return coloring
   
     ############################################################################
     # Assign Homes
     ############################################################################
 
+    def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
+        match a:
+            case Variable(_):
+                if a not in home:
+                    self.stack_size += 8
+                    home[a] = Deref('rbp', -self.stack_size)
+                return home[a]
+            case _:
+                return a
+
+    def assign_homes_instr(self, i: instr, home: dict[Variable, arg]) -> instr:
+        match i:
+            case Instr(op, [arg1, arg2]):
+                return Instr(
+                    op,
+                    [
+                        self.assign_homes_arg(arg1, home),
+                        self.assign_homes_arg(arg2, home),
+                    ],
+                )
+            case Instr(op, [arg1]):
+                return Instr(op, [self.assign_homes_arg(arg1, home)])
+            case Callq('read_int', 0) | Callq('print_int', 1):
+                return i
+            case _:
+                return i
+
+    def assign_homes_instrs(
+        self, ss: list[instr], home: dict[Variable, arg]
+    ) -> list[instr]:
+        result = []
+        for i in ss:
+            result.append(self.assign_homes_instr(i, home))
+        return result
+
+    def assign_homes(self, p: X86Program) -> X86Program:
+        live_after = self.uncover_live(p)
+        rig = self.build_interference(p, live_after)
+        home = self.color_graph(rig, registers_for_coloring)
+
+        return X86Program(self.assign_homes_instrs(p.body, home))
 
     ###########################################################################
     # Patch Instructions
