@@ -6,7 +6,7 @@ from utils import *
 from dataflow_analysis import analyze_dataflow
 import copy
 from type_check_Ltup import TypeCheckLtup
-import type_check_Ctup
+from type_check_Ctup import TypeCheckCtup
 
 Binding = tuple[Name, expr]
 Temporaries = list[Binding]
@@ -62,6 +62,10 @@ def cc(op: cmpop) -> str:
             raise Exception('unhandled case in cc:' + repr(op))
 
 class Compiler:
+
+    def __init__(self):
+        self.env = {}
+        self.stack_size = 0
 
     def tmps_to_stmts(self, tmps: Temporaries) -> list[stmt]:
         result = []
@@ -272,9 +276,6 @@ class Compiler:
                     return tmp, temps + [(tmp, e)]
                 return e, temps
             case GlobalValue(name):
-                if need_atomic:
-                    tmp = Name(get_fresh_tmp())
-                    return tmp, [(tmp, e)]
                 return e, []
             case Expr(e):
                 return self.rco_exp(e, need_atomic)
@@ -643,6 +644,8 @@ class Compiler:
                 ]
 
     def select_instructions(self, p: CProgram) -> X86Program:
+        TypeCheckCtup().type_check(p)
+        self.env = p.var_types
         new_body = {}
         for block_id, stmts in p.body.items():
             instrs = []
@@ -850,6 +853,17 @@ class Compiler:
                 return Instr(op, [self.assign_homes_arg(arg1, home)])
             case Callq('read_int', 0) | Callq('print_int', 1):
                 return i
+            case Callq('collect', 1):
+                moveRootStack = []
+                index = 0
+                for var in home:
+                    if isinstance(var, Variable):
+                        varName = var.id
+                        varType = self.env[varName]
+                        if isinstance(varType, TupleType):
+                            moveRootStack += [Instr('movq', [home[var], Deref('r15', -8 * index)])]
+                            index += 1
+                return moveRootStack + [i]
             case _:
                 return i
 
@@ -862,21 +876,91 @@ class Compiler:
         return result
 
     def assign_homes(self, p: X86Program) -> X86Program:
-        live_after = self.uncover_live(p)
-        rig = self.build_interference(p, live_after)
+        p.body['conclusion'] = []
+
+        live_blocks = self.uncover_live_blocks(p.body)
+        rig = self.build_interference(p, live_blocks)
         home = self.color_graph(rig, registers_for_coloring)
 
-        return X86Program(self.assign_homes_instrs(p.body, home))
+        new_body = {}
+        for block_id, instrs in p.body.items():
+            new_body[block_id] = self.assign_homes_instrs(instrs, home)
+
+        return X86Program(new_body)
 
     ###########################################################################
     # Patch Instructions
     ###########################################################################
 
+    def patch_instr(self, i: instr) -> list[instr]:
+        match i:
+            case Instr('cmpq', [arg, Immediate(n)]):
+                return [
+                    Instr('movq', [Immediate(n), Reg('rax')]),
+                    Instr('cmpq', [arg, Reg('rax')]),
+                ]
+            case Instr('movzbq', [arg, Deref(reg, offset)]):
+                return [
+                    Instr('movzbq', [arg, Reg('rax')]),
+                    Instr('movq', [Reg('rax'), Deref(reg, offset)]),
+                ]
+            case Instr('movq', [arg1, arg2]) if arg1 == arg2:
+                return []
+            case Instr(op, [Deref(reg, offset), Deref(reg2, offset2)]):
+                return [
+                    Instr('movq', [Deref(reg, offset), Reg('rax')]),
+                    Instr(op, [Reg('rax'), Deref(reg2, offset2)]),
+                ]
+            case _:
+                return [i]
+
+    def patch_instrs(self, instrs: list[instr]) -> list[instr]:
+        result = []
+        for i in instrs:
+            result += self.patch_instr(i)
+        return result
+
+    def patch_instructions(self, p: X86Program) -> X86Program:
+        new_body = {}
+
+        for block_id, block_items in p.body.items():
+            new_body[block_id] = self.patch_instrs(block_items)
+
+        return X86Program(new_body)
 
     ###########################################################################
     # Prelude & Conclusion
     ###########################################################################
 
+    def prelude_and_conclusion(self, p: X86Program) -> X86Program:
+        adjust_stack_size = (
+            self.stack_size if self.stack_size % 16 == 0 else self.stack_size + 8
+        )
+
+        prelude = [
+            Instr("pushq", [Reg("rbp")]),
+            Instr("movq", [Reg("rsp"), Reg("rbp")]),
+        ]
+        if adjust_stack_size > 0:
+            prelude.append(Instr('subq', [Immediate(adjust_stack_size), Reg('rsp')]))
+
+        prelude += [
+            Instr('movq', [Immediate(16384), Reg('rdi')]),
+            Instr('movq', [Immediate(16384), Reg('rsi')]),
+            Callq('initialize', 0),
+            Instr('movq', [x86_ast.Global('rootstack_begin'), Reg('r15')]),
+        ]
+
+        p.body['main'] = prelude + [Jump('start')]
+        conclusion = [Instr('popq', [Reg('rbp')]), Instr('retq', [])]
+
+        if adjust_stack_size > 0:
+            conclusion.insert(
+                0, Instr('addq', [Immediate(adjust_stack_size), Reg('rsp')])
+            )
+
+        p.body['conclusion'] = conclusion
+        return X86Program(p.body)
 
     ##################################################
     # Compiler
