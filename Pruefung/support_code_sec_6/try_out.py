@@ -16,6 +16,10 @@ ast = compiler.shrink(ast)
 print('=====')
 print(ast)
 
+ast = compiler.expose_allocation(ast)
+print('=====')
+print(ast)
+
 ast = compiler.remove_complex_operands(ast)
 print('=====')
 print(ast)

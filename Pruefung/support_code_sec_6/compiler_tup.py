@@ -5,7 +5,7 @@ from graph import *
 from utils import *
 from dataflow_analysis import analyze_dataflow
 import copy
-import type_check_Ltup
+from type_check_Ltup import TypeCheckLtup
 import type_check_Ctup
 
 Binding = tuple[Name, expr]
@@ -120,6 +120,68 @@ class Compiler:
     # Expose Allocation
     ###########################################################################
 
+    def expose_allocation_exp(self, e: expr) -> expr:
+        match e:
+            case UnaryOp(op, exp):
+                return UnaryOp(op, self.expose_allocation_exp(exp))
+            case BinOp(e1, op, e2):
+                return BinOp(self.expose_allocation_exp(e1), op, self.expose_allocation_exp(e2))
+            case BoolOp(op, [e1, e2]):
+                return BoolOp(op, [self.expose_allocation_exp(e1), self.expose_allocation_exp(e2)])
+            case Compare(e1, [cmp], [e2]):
+                return Compare(self.expose_allocation_exp(e1), [cmp], [self.expose_allocation_exp(e2)])
+            case IfExp(test, thn, els):
+                return IfExp(self.expose_allocation_exp(test), self.expose_allocation_exp(thn), self.expose_allocation_exp(els))
+            case Tuple(elts, Load()):
+                exprs = [self.expose_allocation_exp(e) for e in elts]
+
+                assignments: list[stmt] = []
+                for exp in exprs:
+                    tmp = Name(generate_name('init'))
+                    assignments.append(Assign([tmp], exp))
+
+                left_side_check = BinOp(GlobalValue('free_ptr'), Add(), Constant(len(exprs) * 8 + 8))
+                right_side_check = GlobalValue('fromspace_end')
+                check = Expr(Compare(left_side_check, [Lt()], [right_side_check]))
+                thn = []
+                els = [Collect(len(exprs) * 8 + 8)]
+                allocate = self.shrink_stmt(If(check, thn, els))
+
+                tuple_name = Name(generate_name('tup'))
+                tup = Assign([tuple_name], Allocate(len(exprs), e.has_type))
+
+                tup_assigns: list[stmt] = []
+                index = 0
+                for assign in assignments:
+                    tup_assigns.append(Assign([Subscript(tuple_name, Constant(index), Load())], assign.targets[0]))
+                    index += 1
+                result = Begin(assignments + [allocate, tup] + tup_assigns, tuple_name)
+                return result
+    def expose_allocation_stmt(self, stm: stmt) -> stmt:
+        match stm:
+            case Expr(Call(Name('print'), [e])):
+                return Expr(Call(Name('print'), [self.expose_allocation_exp(e)]))
+            case Expr(e):
+                return Expr(self.expose_allocation_exp(e))
+            case Assign(lhs, rhs):
+                return Assign(lhs, self.expose_allocation_exp(rhs))
+            case If(test, thn, els):
+                return If(self.expose_allocation_exp(test),
+                          [self.expose_allocation_stmt(s) for s in thn],
+                          [self.expose_allocation_stmt(s) for s in els]
+                )
+            case While(test, body, []):
+                return While(self.expose_allocation_exp(test),
+                                [self.expose_allocation_stmt(s) for s in body],
+                                []
+                )
+
+    def expose_allocation(self, p: Module) -> Module:
+        TypeCheckLtup().type_check(p)
+        new_body = []
+        for stm in p.body:
+            new_body.append(self.expose_allocation_stmt(stm))
+        return Module(new_body)
 
     ############################################################################
     # Remove Complex Operands
