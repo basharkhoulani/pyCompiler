@@ -12,15 +12,28 @@ Binding = tuple[Name, expr]
 Temporaries = list[Binding]
 get_fresh_tmp = lambda: generate_name('tmp')
 
+label = lambda v: v.id if isinstance(v, Reg) else str(v)
+
 registers_for_coloring = [
     Reg('rcx'),
     Reg('rdx'),
     Reg('rsi'),
     Reg('r8'),
     Reg('r9'),
-    Reg('r10'),
-    Reg('r15')
+    Reg('r10')
 ]
+
+
+def get_loc_from_arg(a: arg) -> set[location]:
+    match a:
+        case Reg(_):
+            return set([a])
+        case Variable(_):
+            return set([a])
+        case ByteReg(_):
+            return set([a])
+        case _:
+            return set([])
 
 def create_block(stmts: list[stmt], basic_blocks) -> list[stmt]:
     match stmts:
@@ -165,8 +178,10 @@ class Compiler:
                 return Expr(Call(Name('print'), [self.expose_allocation_exp(e)]))
             case Expr(e):
                 return Expr(self.expose_allocation_exp(e))
-            case Assign(lhs, rhs):
-                return Assign(lhs, self.expose_allocation_exp(rhs))
+            case Assign([Name(var)], rhs):
+                return Assign([Name(var)], self.expose_allocation_exp(rhs))
+            case Assign([Subscript(exp, Constant(index), Store())], rhs):
+                return Assign([Subscript(self.expose_allocation_exp(exp), Constant(index), Store())], self.expose_allocation_exp(rhs))
             case If(test, thn, els):
                 return If(self.expose_allocation_exp(test),
                           [self.expose_allocation_stmt(s) for s in thn],
@@ -211,13 +226,6 @@ class Compiler:
                     tmp = Name(get_fresh_tmp())
                     return tmp, temps1 + temps2 + [(tmp, BinOp(new_e1, op, new_e2))]
                 return BinOp(new_e1, op, new_e2), temps1 + temps2
-            case BoolOp(op, [e1, e2]):
-                (new_e1, temps1) = self.rco_exp(e1, True)
-                (new_e2, temps2) = self.rco_exp(e2, True)
-                if need_atomic:
-                    tmp = Name(get_fresh_tmp())
-                    return tmp, temps1 + temps2 + [(tmp, BoolOp(op, [new_e1, new_e2]))]
-                return BoolOp(op, [new_e1, new_e2]), temps1 + temps2
             case Compare(e1, [cmp], [e2]):
                 (new_e1, temps1) = self.rco_exp(e1, True)
                 (new_e2, temps2) = self.rco_exp(e2, True)
@@ -460,6 +468,189 @@ class Compiler:
     # Select Instructions
     ############################################################################
 
+    def select_arg(self, e: arg) -> arg:
+        match e:
+            case Constant(True):
+                return Immediate(1)
+            case Constant(False):
+                return Immediate(0)
+            case Constant(n):
+                return Immediate(n)
+            case Name(v):
+                return Variable(v)
+            case GlobalValue(v):
+                return x86_ast.Global(v)
+            case [a]:
+                return self.select_arg(a)
+    def select_assign(self, s: stmt) -> list[instr]:
+        match s:
+            case Assign([Name(var)], BinOp(atm1, Add(), atm2)):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                lhs = Variable(var)
+                if arg1 == lhs:
+                    return [Instr('addq', [arg2, lhs])]
+                elif arg2 == lhs:
+                    return [Instr('addq', [arg1, lhs])]
+                else:
+                    return [Instr('movq', [arg1, lhs]),
+                            Instr('addq', [arg2, lhs])]
+            case Assign([Name(var)], BinOp(atm1, Sub(), atm2)):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                lhs = Variable(var)
+                if arg1 == lhs:
+                    return [Instr('subq', [arg2, lhs])]
+                elif arg2 == lhs:
+                    return [Instr('negq', [lhs]),
+                            Instr('addq', [arg1, lhs])]
+                else:
+                    return [Instr('movq', [arg1, lhs]),
+                            Instr('subq', [arg2, lhs])]
+            case Assign([Name(var)], UnaryOp(USub(), atm)):
+                arg = self.select_arg(atm)
+                return [Instr('movq', [arg, Variable(var)]),
+                        Instr('negq', [Variable(var)])]
+            case Assign([Name(var)], Call(Name('input_int'), [])):
+                return [Callq(label_name('read_int'), 0),
+                        Instr('movq', [Reg('rax'), Variable(var)])]
+            case Assign([Name(var)], Compare(left, [op], [right])):
+                return [
+                    Instr('cmpq', [self.select_arg(right), self.select_arg(left)]),
+                    Instr('set' + cc(op), [ByteReg('al')]),
+                    Instr('movzbq', [ByteReg('al'), Variable(var)]),
+                ]
+            case Assign([Name(var)], UnaryOp(Not(), atm)):
+                arg = self.select_arg(atm)
+                lhs = Variable(var)
+                if lhs == arg:
+                    return [Instr('xorq', [Immediate(1), Variable(var)])]
+                else:
+                    return [
+                        Instr('movq', [self.select_arg(arg), Variable(var)]),
+                        Instr('xorq', [Immediate(1), Variable(var)]),
+                    ]
+            case Assign([Name(var)], Call(Name('len'), [atm])):
+                arg = self.select_arg(atm)
+                return [
+                    Instr('movq', [arg, Reg('r11')]),
+                    Instr('movq', [Deref('r11', 0), Reg('r11')]),
+                    Instr('andq', [Immediate(126), Reg('r11')]),
+                    Instr('sarq', [Immediate(1), Reg('r11')]),
+                    Instr('movq', [Reg('r11'), Variable(var)])
+                ]
+            case Assign([Name(var)], Allocate(Constant(n), t)):
+                tag = self.calculate_tag(n, t)
+                return [
+                    Instr('movq', [x86_ast.Global('free_ptr'), Reg('r11')]),
+                    Instr('addq', [Immediate(8 * (n + 1)), x86_ast.Global('free_ptr')]),
+                    Instr('movq', [Immediate(tag), Deref('r11', 0)]),
+                    Instr('movq', [Reg('r11'), Variable(var)])
+                ]
+            case Assign([Subscript(atm1, Constant(n), ls)], Call(Name('len'), [atm2])):
+                return [Instr('movq', [self.select_arg(atm2), Reg('r11')]),
+                        Instr('movq', [Deref('r11', 0), Reg('r11')]),
+                        Instr('andq', [Immediate(126), Reg('r11')]),
+                        Instr('sarq', [Immediate(1), Reg('r11')]),
+                        Instr('movq', [self.select_arg(atm1), Reg('r12')]),
+                        Instr('movq', [Reg('r11'), Deref('r12', 8 * (n + 1))])
+                        ]
+            case Assign([Subscript(atm1, Constant(n), ls)], Allocate(n2, t)):
+                tag = self.calculate_tag(n, t)
+                return [
+                    Instr('movq', [x86_ast.Global('free_ptr'), Reg('r11')]),
+                    Instr('addq', [Immediate(8 * (n + 1)), x86_ast.Global('free_ptr')]),
+                    Instr('movq', [Immediate(tag), Deref('r11', 0)]),
+                    Instr('movq', [self.select_arg(atm1), Reg('r12')]),
+                    Instr('movq', [Reg('r11'), Deref('r12', 8 * (n + 1))])
+                ]
+            case Assign([Subscript(atm1, Constant(n1), ls)], Subscript(atm2, Constant(n2), ls2)):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                return [Instr('movq', [arg2, Reg('r11')]),
+                        Instr('movq', [Deref('r11', 8 * (n2 + 1)), Reg('r12')]),
+                        Instr('movq', [arg1, Reg('r11')]),
+                        Instr('movq', [Reg('r12'), Deref('r11', 8 * (n1 + 1))])]
+            case Assign(atm1, Subscript(atm2, Constant(n), ls)):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                return [Instr('movq', [arg2, Reg('r11')]),
+                        Instr('movq', [Deref('r11', 8 * (n + 1)), arg1])]
+            case Assign([Subscript(atm1, Constant(n), ls)], atm2):
+                arg1 = self.select_arg(atm1)
+                arg2 = self.select_arg(atm2)
+                return [Instr('movq', [arg1, Reg('r11')]),
+                        Instr('movq', [arg2, Deref('r11', 8 * (n + 1))])]
+            case Assign([Name(var)], atm):
+                arg = self.select_arg(atm)
+                return [Instr('movq', [arg, Variable(var)])]
+
+    def calculate_tag(self, n, t):
+        unused = 0b000000
+        mask = 0
+        length = n
+        fwd = 0b0
+        index = 0
+        for type in t.types:
+            match type:
+                case TupleType(_):
+                    mask |= (1 << index)
+            index += 1
+        tag = unused
+        tag <<= 51
+        tag |= mask
+        tag <<= 6
+        tag |= length
+        tag <<= 1
+        tag |= fwd
+        return tag
+
+    def select_stmt(self, s: stmt) -> list[instr]:
+        match s:
+            case Assign(_, _):
+                return self.select_assign(s)
+            case Expr(Call(Name('print'), [atm])):
+                arg = self.select_arg(atm)
+                return [
+                    Instr('movq', [arg, Reg('rdi')]),
+                    Callq(label_name('print_int'), 1),
+                ]
+                # input_int()
+            case Expr(Call(Name('input_int'), [])):
+                return [Callq(label_name('read_int'), 0)]
+            case If(Compare(left, [op], [right]), [Goto(thn)], [Goto(els)]):
+                return [
+                    Instr('cmpq', [self.select_arg(right), self.select_arg(left)]),
+                    JumpIf(cc(op), thn),
+                    Jump(els),
+                ]
+            case Goto(label):
+                return [Jump(label)]
+            case Return(arg):
+                return [
+                    Instr('movq', [self.select_arg(arg), Reg('rax')]),
+                    Jump('conclusion'),
+                ]
+            case Expr(Call(Name('len'), [atm])):
+                return [
+                    Instr('len', []),
+                ]
+            case Collect(n):
+                return [
+                    Instr('movq', [Reg('r15'), Reg('rdi')]),
+                    Instr('movq', [Immediate(n), Reg('rsi')]),
+                    Callq('collect', 1),
+                ]
+
+    def select_instructions(self, p: CProgram) -> X86Program:
+        new_body = {}
+        for block_id, stmts in p.body.items():
+            instrs = []
+            for s in stmts:
+                s = self.select_stmt(s)
+                instrs += s
+            new_body[block_id] = instrs
+        return X86Program(new_body)
 
     ###########################################################################
     # Uncover Live
