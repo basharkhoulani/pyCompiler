@@ -143,12 +143,12 @@ class Compiler:
                 left_side_check = BinOp(GlobalValue('free_ptr'), Add(), Constant(len(exprs) * 8 + 8))
                 right_side_check = GlobalValue('fromspace_end')
                 check = Expr(Compare(left_side_check, [Lt()], [right_side_check]))
-                thn = []
+                thn = [Expr(Constant(0))]
                 els = [Collect(len(exprs) * 8 + 8)]
                 allocate = self.shrink_stmt(If(check, thn, els))
 
-                tuple_name = Name(generate_name('tup'))
-                tup = Assign([tuple_name], Allocate(len(exprs), e.has_type))
+                tuple_name = Name(generate_name('alloc'))
+                tup = Assign([tuple_name], Allocate(Constant(len(exprs)), e.has_type))
 
                 tup_assigns: list[stmt] = []
                 index = 0
@@ -157,6 +157,8 @@ class Compiler:
                     index += 1
                 result = Begin(assignments + [allocate, tup] + tup_assigns, tuple_name)
                 return result
+            case _:
+                return e
     def expose_allocation_stmt(self, stm: stmt) -> stmt:
         match stm:
             case Expr(Call(Name('print'), [e])):
@@ -172,8 +174,8 @@ class Compiler:
                 )
             case While(test, body, []):
                 return While(self.expose_allocation_exp(test),
-                                [self.expose_allocation_stmt(s) for s in body],
-                                []
+                            [self.expose_allocation_stmt(s) for s in body],
+                            []
                 )
 
     def expose_allocation(self, p: Module) -> Module:
@@ -187,6 +189,130 @@ class Compiler:
     # Remove Complex Operands
     ############################################################################
 
+    def rco_exp(self, e: expr, need_atomic: bool) -> tuple[expr, Temporaries]:
+        match e:
+            case Constant(_) | Name(_):
+                return e, []
+            case Call(Name('input_int'), []):
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, [(tmp, e)]
+                return e, []
+            case UnaryOp(op, exp):
+                (new_exp, temps) = self.rco_exp(exp, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps + [(tmp, UnaryOp(op, new_exp))]
+                return UnaryOp(op, new_exp), temps
+            case BinOp(e1, op, e2):
+                (new_e1, temps1) = self.rco_exp(e1, True)
+                (new_e2, temps2) = self.rco_exp(e2, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps1 + temps2 + [(tmp, BinOp(new_e1, op, new_e2))]
+                return BinOp(new_e1, op, new_e2), temps1 + temps2
+            case BoolOp(op, [e1, e2]):
+                (new_e1, temps1) = self.rco_exp(e1, True)
+                (new_e2, temps2) = self.rco_exp(e2, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps1 + temps2 + [(tmp, BoolOp(op, [new_e1, new_e2]))]
+                return BoolOp(op, [new_e1, new_e2]), temps1 + temps2
+            case Compare(e1, [cmp], [e2]):
+                (new_e1, temps1) = self.rco_exp(e1, True)
+                (new_e2, temps2) = self.rco_exp(e2, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps1 + temps2 + [(tmp, Compare(new_e1, [cmp], [new_e2]))]
+                return Compare(new_e1, [cmp], [new_e2]), temps1 + temps2
+            case IfExp(test, thn, els):
+                (new_test, temps1) = self.rco_exp(test, False)
+                (new_thn, temps2) = self.rco_exp(thn, False)
+                (new_els, temps3) = self.rco_exp(els, False)
+
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, [(tmp, IfExp(make_begin(temps1, new_test),
+                                make_begin(temps2, new_thn),
+                                make_begin(temps3, new_els)))]
+                return IfExp(make_begin(temps1, new_test),
+                            make_begin(temps2, new_thn),
+                            make_begin(temps3, new_els)), []
+            case Begin(stmts, e):
+                new_stmts = []
+                for stm in stmts:
+                    for new_stmt in self.rco_stmt(stm):
+                        new_stmts.append(new_stmt)
+                return Begin(new_stmts, e), []
+            case Subscript(e1, e2, Load()):
+                (new_e1, temps) = self.rco_exp(e1, True)
+                (new_e2, temps2) = self.rco_exp(e2, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps + temps2 + [(tmp, Subscript(new_e1, new_e2, Load()))]
+                return Subscript(new_e1, new_e2, Load()), temps + temps2
+            case Call(Name('len'), [e]):
+                (new_e, temps) = self.rco_exp(e, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps + [(tmp, Call(Name('len'), [new_e]))]
+                return Call(Name('len'), [new_e]), temps
+            case Allocate(n, t):
+                (new_n, temps) = self.rco_exp(n, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps + [(tmp, e)]
+                return e, temps
+            case GlobalValue(name):
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, [(tmp, e)]
+                return e, []
+            case Expr(e):
+                return self.rco_exp(e, need_atomic)
+            case _:
+                raise Exception('unhandled case in rco_exp ' + repr(e))
+
+    def rco_stmt(self, stm: stmt) -> list[stmt]:
+        match stm:
+            case Expr(Call(Name('print'), [e])):
+                (new_e, temps) = self.rco_exp(e, True)
+                return make_assigns(temps) + [Expr(Call(Name('print'), [new_e]))]
+            case Expr(e):
+                (new_e, temps) = self.rco_exp(e, False)
+                return make_assigns(temps) + [Expr(new_e)]
+            case Assign(lhs, rhs):
+                (new_rhs, temps) = self.rco_exp(rhs, False)
+                return make_assigns(temps) + [Assign(lhs, new_rhs)]
+            case If(test, thn, els):
+                (new_test, temps) = self.rco_exp(test, False)
+                new_th = []
+                for stm in thn:
+                    new_th += self.rco_stmt(stm)
+                new_els = []
+                for stm in els:
+                    new_els += self.rco_stmt(stm)
+                return make_assigns(temps) + [If(new_test, new_th, new_els)]
+            case While(test, body, []):
+                (new_test, temps) = self.rco_exp(test, False)
+                new_body = [self.rco_stmt(s) for s in body]
+                return make_assigns(temps) + [While(new_test, new_body, [])]
+            case Collect(_):
+                return [stm]
+            case Assign([Subscript(e1, e2, Store())], e3):
+                (new_e1, temps1) = self.rco_exp(e1, True)
+                (new_e2, temps2) = self.rco_exp(e2, True)
+                (new_e3, temps3) = self.rco_exp(e3, True)
+                return make_assigns(temps1 + temps2 + temps3) + [Assign([Subscript(new_e1, new_e2, Store())], new_e3)]
+            case _:
+                raise Exception(f'Unexpected statement: {stm}')
+
+
+    def remove_complex_operands(self, p: Module) -> Module:
+        new_body = []
+        for stm in p.body:
+            new_body.extend(self.rco_stmt(stm))
+        return Module(new_body)
 
     ############################################################################
     # Explicate Control

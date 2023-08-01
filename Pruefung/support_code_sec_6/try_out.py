@@ -5,7 +5,9 @@ from compiler_tup import Compiler
 compiler = Compiler()
 
 prog="""
-print(1 > 0)
+t1 = ((7,), 42)
+t2 = (t1,)
+print(t2[0][1])
 """
 
 ast = parse(prog)
