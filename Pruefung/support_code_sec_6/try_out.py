@@ -1,6 +1,6 @@
 from ast import *
 from utils import *
-from compiler_conditionals import Compiler
+from compiler_tup import Compiler
 
 compiler = Compiler()
 

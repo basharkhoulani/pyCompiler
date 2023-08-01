@@ -10,13 +10,111 @@ import type_check_Ctup
 
 Binding = tuple[Name, expr]
 Temporaries = list[Binding]
+get_fresh_tmp = lambda: generate_name('tmp')
+
+registers_for_coloring = [
+    Reg('rcx'),
+    Reg('rdx'),
+    Reg('rsi'),
+    Reg('r8'),
+    Reg('r9'),
+    Reg('r10'),
+    Reg('r15')
+]
+
+def create_block(stmts: list[stmt], basic_blocks) -> list[stmt]:
+    match stmts:
+        case [Goto(label)]:
+            return stmts
+        case _:
+            label = label_name(generate_name('block'))
+            basic_blocks[label] = stmts
+            return [Goto(label)]
+
+def cc(op: cmpop) -> str:
+    match op:
+        case Eq() | Is():
+            return 'e'
+        case NotEq():
+            return 'ne'
+        case Lt():
+            return 'l'
+        case LtE():
+            return 'le'
+        case Gt():
+            return 'g'
+        case GtE():
+            return 'ge'
+        case _:
+            raise Exception('unhandled case in cc:' + repr(op))
 
 class Compiler:
+
+    def tmps_to_stmts(self, tmps: Temporaries) -> list[stmt]:
+        result = []
+        for tmp in tmps:
+            result.append(Assign(tmp[0], tmp[1]))
+        return result
 
     ###########################################################################
     # Shrink
     ###########################################################################
 
+    def shrink_exp(self, e: expr) -> expr:
+        match e:
+            case Constant(_) | Name(_) | GlobalValue(_) | Call(Name('input_int'), []):
+                return e
+            case BoolOp(And(), [e1, e2]):
+                return IfExp(self.shrink_exp(e1), self.shrink_exp(e2), Constant(False))
+            case BoolOp(Or(), [e1, e2]):
+                return IfExp(self.shrink_exp(e1), Constant(True), self.shrink_exp(e2))
+            case IfExp(test, thn, els):
+                return IfExp(self.shrink_exp(test), self.shrink_exp(thn), self.shrink_exp(els))
+            case Compare(e1, [cmp], [e2]):
+                return Compare(self.shrink_exp(e1), [cmp], [self.shrink_exp(e2)])
+            case BinOp(e1, op, e2):
+                return BinOp(self.shrink_exp(e1), op, self.shrink_exp(e2))
+            case UnaryOp(op, e):
+                return UnaryOp(op, self.shrink_exp(e))
+            case Call(Name('len'), [e]):
+                return Call(Name('len'), [self.shrink_exp(e)])
+            case Subscript(exp, Constant(index), Load()):
+                return Subscript(self.shrink_exp(exp), Constant(index), Load())
+            case Tuple(elts, Load()):
+                return Tuple([self.shrink_exp(e) for e in elts], Load())
+            case Expr(exp):
+                return Expr(self.shrink_exp(exp))
+            case _:
+                raise Exception('unhandled case in shrink_exp:' + repr(e))
+
+    def shrink_stmt(self, stm: stmt) -> stmt:
+        match stm:
+            case If(test, thn, els):
+                test_shrink = self.shrink_exp(test)
+                thn_shrink = [self.shrink_stmt(s) for s in thn]
+                els_shrink = [self.shrink_stmt(s) for s in els]
+                return If(test_shrink, thn_shrink, els_shrink)
+            case While(test, body, []):
+                test_shrink = self.shrink_exp(test)
+                body_shrink = [self.shrink_stmt(s) for s in body]
+                return While(test_shrink, body_shrink, [])
+            case Expr(Call(Name('print'), [e])):
+                return Expr(Call(Name('print'), [self.shrink_exp(e)]))
+            case Expr(e):
+                return Expr(self.shrink_exp(e))
+            case Assign(lhs, rhs):
+                return Assign(lhs, self.shrink_exp(rhs))
+            case Collect(_):
+                return stm
+            case _:
+                raise Exception('unhandled case in shrink_stmt:' + repr(stm))
+
+
+    def shrink(self, p: Module) -> Module:
+        new_body = []
+        for stm in p.body:
+            new_body.append(self.shrink_stmt(stm))
+        return Module(new_body)
 
     ###########################################################################
     # Expose Allocation
