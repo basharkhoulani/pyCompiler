@@ -173,7 +173,6 @@ class Compiler:
                     
                 result = Begin(assignments + [allocate, tup] + tup_assigns, tup_name)
                 return result
-                
             case _:
                 return e
             
@@ -196,6 +195,8 @@ class Compiler:
             case While(test, stmts, []):
                 nstmts = [self.expose_allocation_stmt(s) for s in stmts]
                 return While(self.expose_allocation_expr(test), nstmts, [])
+            case _:
+               raise Exception('unhandled case in expose_allocation_stmt:' + repr(s))
             
 
     def expose_allocation(self, p: Module) -> Module:
@@ -218,15 +219,15 @@ class Compiler:
                     fresh_tmp = get_fresh_tmp()
                     return (Name(fresh_tmp), [(Name(fresh_tmp), e)])
                 return (e, [])
-            case UnaryOp(USub(), e1):
+            case UnaryOp(op, e1):
                 atm, tmps = self.rco_exp(e1, True)
                 if need_atomic:
                     fresh_tmp = get_fresh_tmp()
                     return (
                         Name(fresh_tmp),
-                        tmps + [(Name(fresh_tmp), UnaryOp(USub(), atm))],
+                        tmps + [(Name(fresh_tmp), UnaryOp(op, atm))],
                     )
-                return (UnaryOp(USub(), atm), tmps)
+                return (UnaryOp(op, atm), tmps)
             case BinOp(e1, op, e2):
                 atm1, tmps1 = self.rco_exp(e1, True)
                 atm2, tmps2 = self.rco_exp(e2, True)
@@ -370,13 +371,13 @@ class Compiler:
                 return self.tmps_to_stmts(tmps) + [While(atm, rco_body, [])]
             case Collect(n):
                 return [s]
-            case Assign([Subscript(e1, e2, Load())], e3):
+            case Assign([Subscript(e1, e2, ls)], e3):
                 atm1, tmps1 = self.rco_exp(e1, True)
                 atm2, tmps2 = self.rco_exp(e2, True)
                 atm3, tmps3 = self.rco_exp(e3, True)
                 
                 result = self.tmps_to_stmts(tmps1 + tmps2 + tmps3)
-                return result + [Assign([Subscript(atm1, atm2, Load())], atm3)]
+                return result + [Assign([Subscript(atm1, atm2, ls)], atm3)]
             case _:
                 raise Exception('unhandled case in rco_stmt ' + repr(s))
 
@@ -600,34 +601,62 @@ class Compiler:
             case Assign([Name(var)], Call(Name('input_int'), [])):
                 result.append(Callq(label_name('read_int'), 0))
                 result.append(Instr('movq', [Reg('rax'), Variable(var)]))
-            case Assign([Name(var)], Expr(Call(Name('len'), [atm]))):
+            case Assign([Name(var)], Call(Name('len'), [atm])):
                 # TODO
                 result.append(Instr('movq', [self.select_arg(atm), Reg('r11')]))
                 result.append(Instr('movq', [Deref('r11', 0), Variable(var)]))
-            case Assign([Name(var)], Allocate(n, t)):
-                # TODO
+            case Assign([Name(var)], Allocate(Constant(n), t)):
+                unused = 0b000000   #  6 bits unused
+                mask   = 0          # 51 bits for mask (1 ptr, 0 data)
+                length = n          #  6 bits for length
+                fwd    = 0b0        #  1 bit for forwarding (GC)
+                
+                index = 0
+                for type in t.types:
+                    match type:
+                        case TupleType(_):
+                            mask |= (1 << index)
+                        # unnessecary
+                        # case _:
+                        #     mask |= (0 << index)
+                    index += 1
+                            
+                tag = unused
+                tag <<= 51
+                tag |= mask
+                tag <<= 6
+                tag |= length
+                tag <<= 1
+                tag |= fwd
+                            
+                return [
+                    Instr('movq', [Global('free_ptr'), Reg('r11')]),
+                    Instr('addq', [Immediate(8 * (n + 1)), Global('free_ptr')]),
+                    Instr('movq', [Immediate(tag), Deref('r11', 0)]),
+                    Instr('movq', [Reg('r11'), self.select_arg(Name(var))]),
+                ]
                 result.append(Instr('movq', [Immediate(n), Reg('r11')]))
-            case Assign([Subscript(atm1, Constant(n), Load())], Expr(Call(Name('len'), [atm2]))):
+            case Assign([Subscript(atm1, Constant(n), ls)], Expr(Call(Name('len'), [atm2]))):
                 # TODO
                 result.append(Instr('movq', [self.select_arg(atm2), Reg('r11')]))
                 result.append(Instr('movq', [Deref('r11', 0), Deref('r11', 8 * (n+1))]))
-            case Assign([Subscript(atm1, Constant(n), Load())], Allocate(n2, t)):
+            case Assign([Subscript(atm1, Constant(n), ls)], Allocate(n2, t)):
                 # TODO
                 result.append(Instr('movq', [Immediate(n2), Reg('r11')]))
                 result.append(Instr('movq', [Deref('r11', 0), Deref('r11', 8 * (n+1))]))
-            case Assign([Subscript(atm1, Constant(n1), Load())], Subscript(atm2, Constant(n2), Load())):
+            case Assign([Subscript(atm1, Constant(n1), ls)], Subscript(atm2, Constant(n2), ls2)):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
                 result.append(Instr('movq', [arg2, Reg('r11')]))
                 result.append(Instr('movq', [Deref('r11', 8 * (n2+1)), Reg('r12')]))
                 result.append(Instr('movq', [arg1, Reg('r11')]))
                 result.append(Instr('movq', [Reg('r12'), Deref('r11', 8 * (n1+1))]))
-            case Assign(atm1, Subscript(atm2, Constant(n), Load())):
+            case Assign(atm1, Subscript(atm2, Constant(n), ls)):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
                 result.append(Instr('movq', [arg2, Reg('r11')]))
                 result.append(Instr('movq', [Deref('r11', 8 * (n+1)), arg1]))
-            case Assign([Subscript(atm1, Constant(n), Load())], atm2):
+            case Assign([Subscript(atm1, Constant(n), ls)], atm2):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
                 result.append(Instr('movq', [arg1, Reg('r11')]))
@@ -669,17 +698,14 @@ class Compiler:
                 return [
                     Instr('len', []),
                 ]
-            case Allocate(n, t):
-                return [
-                    Instr('alloc', []),
-                ]
             case Collect(n):
                 return [
-                    Instr('collect', []),
+                    Instr('movq', [Reg('r15'), Reg('rdi')]),
+                    Instr('movq', [Immediate(n), Reg('rsi')]),
+                    Callq('collect', 1),
                 ]
             case _:
                 raise Exception('unhandled case in select_stmt: ' + repr(s))
-        return []
 
     def select_instructions(self, p: Module) -> X86Program:
         new_body = {}

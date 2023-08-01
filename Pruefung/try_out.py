@@ -8,44 +8,46 @@ input_file = "test.py"
 
 # prog = open(input_file).read()
 prog = '''
-t1 = ((7,),42)
-t2 = (t1,)
+t1 = (42, (7,))
 
-if t1 is t2[0]:
-   print(1)
-else:
-   print(0)
+# t1 = ((7,),42)
+# t2 = (t1,)
 
-# prints 1
+# if t1 is t2[0]:
+#    print(len(t1))
+# else:
+#    print(0)
+
+# # prints 1
    
-print(1 if t1[0][0] < 3 else t2[0][1])
+# print(1 if t1[0][0] < 3 else t2[0][1])
 
-# prints 42
+# # prints 42
 
-# x = input_int() + 3
+# # x = input_int() + 3
 '''
 
-print('=====')
+print('PARSE =====')
 ast = parse(prog)
 print(dump(ast, indent=2))
 
-print('=====')
+print('SHRINK =====')
 ast = compiler.shrink(ast)
 print(ast)
 
-print('=====')
+print('EXPOSE =====')
 ast = compiler.expose_allocation(ast)
 print(ast)
 
-print('=====')
+print('RCO =====')
 ast = compiler.remove_complex_operands(ast)
 print(ast)
 
-print('=====')
+print('EXPLICATE =====')
 ast = compiler.explicate_control(ast)
 print(ast)
 
-print('=====')
+print('SELECT =====')
 ast = compiler.select_instructions(ast)
 print(ast)
 

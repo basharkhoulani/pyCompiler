@@ -2,7 +2,7 @@ t1 = ((7,),42)
 t2 = (t1,)
 
 if t1 is t2[0]:
-   print(1)
+   print(len(t1))
 else:
    print(0)
 
