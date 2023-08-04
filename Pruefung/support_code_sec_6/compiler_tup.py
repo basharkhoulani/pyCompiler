@@ -23,6 +23,24 @@ registers_for_coloring = [
     Reg('r10')
 ]
 
+caller_saved_registers: set[location] = set(
+    [
+        Reg('rax'),
+        Reg('rcx'),
+        Reg('rdx'),
+        Reg('rsi'),
+        Reg('rdi'),
+        Reg('r8'),
+        Reg('r9'),
+        Reg('r10'),
+        Reg('r11'),
+    ]
+)
+
+callee_saved_registers: set[location] = set(
+    [Reg('rsp'), Reg('rbp'), Reg('rbx'), Reg('r12'), Reg('r13'), Reg('r14'), Reg('r15')]
+)
+
 
 def get_loc_from_arg(a: arg) -> set[location]:
     match a:
@@ -66,6 +84,7 @@ class Compiler:
     def __init__(self):
         self.env = {}
         self.stack_size = 0
+        self.root_stack_size = 0
 
     def tmps_to_stmts(self, tmps: Temporaries) -> list[stmt]:
         result = []
@@ -159,13 +178,13 @@ class Compiler:
 
                 left_side_check = BinOp(GlobalValue('free_ptr'), Add(), Constant(len(exprs) * 8 + 8))
                 right_side_check = GlobalValue('fromspace_end')
-                check = Expr(Compare(left_side_check, [Lt()], [right_side_check]))
+                check = Compare(left_side_check, [Lt()], [right_side_check])
                 thn = [Expr(Constant(0))]
                 els = [Collect(len(exprs) * 8 + 8)]
                 allocate = self.shrink_stmt(If(check, thn, els))
 
                 tuple_name = Name(generate_name('alloc'))
-                tup = Assign([tuple_name], Allocate(Constant(len(exprs)), e.has_type))
+                tup = Assign([tuple_name], Allocate(len(exprs), e.has_type))
 
                 tup_assigns: list[stmt] = []
                 index = 0
@@ -230,6 +249,13 @@ class Compiler:
                     tmp = Name(get_fresh_tmp())
                     return tmp, temps1 + temps2 + [(tmp, BinOp(new_e1, op, new_e2))]
                 return BinOp(new_e1, op, new_e2), temps1 + temps2
+            case BoolOp(op, [e1, e2]):
+                (new_e1, temps1) = self.rco_exp(e1, True)
+                (new_e2, temps2) = self.rco_exp(e2, True)
+                if need_atomic:
+                    tmp = Name(get_fresh_tmp())
+                    return tmp, temps1 + temps2 + [(tmp, BoolOp(op, [new_e1, new_e2]))]
+                return BoolOp(op, [new_e1, new_e2]), temps1 + temps2
             case Compare(e1, [cmp], [e2]):
                 (new_e1, temps1) = self.rco_exp(e1, True)
                 (new_e2, temps2) = self.rco_exp(e2, True)
@@ -304,7 +330,9 @@ class Compiler:
                 return make_assigns(temps) + [If(new_test, new_th, new_els)]
             case While(test, body, []):
                 (new_test, temps) = self.rco_exp(test, False)
-                new_body = [self.rco_stmt(s) for s in body]
+                new_body = []
+                for stm in body:
+                    new_body += self.rco_stmt(stm)
                 return make_assigns(temps) + [While(new_test, new_body, [])]
             case Collect(_):
                 return [stm]
@@ -556,15 +584,6 @@ class Compiler:
                         Instr('movq', [self.select_arg(atm1), Reg('r12')]),
                         Instr('movq', [Reg('r11'), Deref('r12', 8 * (n + 1))])
                         ]
-            case Assign([Subscript(atm1, Constant(n), ls)], Allocate(n2, t)):
-                tag = self.calculate_tag(n, t)
-                return [
-                    Instr('movq', [x86_ast.Global('free_ptr'), Reg('r11')]),
-                    Instr('addq', [Immediate(8 * (n + 1)), x86_ast.Global('free_ptr')]),
-                    Instr('movq', [Immediate(tag), Deref('r11', 0)]),
-                    Instr('movq', [self.select_arg(atm1), Reg('r12')]),
-                    Instr('movq', [Reg('r11'), Deref('r12', 8 * (n + 1))])
-                ]
             case Assign([Subscript(atm1, Constant(n1), ls)], Subscript(atm2, Constant(n2), ls2)):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
@@ -631,10 +650,6 @@ class Compiler:
                 return [
                     Instr('movq', [self.select_arg(arg), Reg('rax')]),
                     Jump('conclusion'),
-                ]
-            case Expr(Call(Name('len'), [atm])):
-                return [
-                    Instr('len', []),
                 ]
             case Collect(n):
                 return [
@@ -824,7 +839,7 @@ class Compiler:
                 coloring[d] = color
 
         return coloring
-  
+
     ############################################################################
     # Assign Homes
     ############################################################################
@@ -839,33 +854,32 @@ class Compiler:
             case _:
                 return a
 
-    def assign_homes_instr(self, i: instr, home: dict[Variable, arg]) -> instr:
+    def assign_homes_instr(self, i: instr, home: dict[Variable, arg]) -> list[instr]:
         match i:
             case Instr(op, [arg1, arg2]):
-                return Instr(
+                return [Instr(
                     op,
                     [
                         self.assign_homes_arg(arg1, home),
                         self.assign_homes_arg(arg2, home),
                     ],
-                )
+                )]
             case Instr(op, [arg1]):
-                return Instr(op, [self.assign_homes_arg(arg1, home)])
+                return [Instr(op, [self.assign_homes_arg(arg1, home)])]
             case Callq('read_int', 0) | Callq('print_int', 1):
-                return i
+                return [i]
             case Callq('collect', 1):
                 moveRootStack = []
-                index = 0
+                self.root_stack_size = 0
                 for var in home:
                     if isinstance(var, Variable):
                         varName = var.id
                         varType = self.env[varName]
                         if isinstance(varType, TupleType):
-                            moveRootStack += [Instr('movq', [home[var], Deref('r15', -8 * index)])]
-                            index += 1
+                            moveRootStack += [Instr('movq', [home[var], Deref('r15', -8 * self.root_stack_size)])]
                 return moveRootStack + [i]
             case _:
-                return i
+                return [i]
 
     def assign_homes_instrs(
         self, ss: list[instr], home: dict[Variable, arg]
@@ -892,6 +906,30 @@ class Compiler:
     # Patch Instructions
     ###########################################################################
 
+    def save(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        # save all variables onto the stack
+        for reg in registers:
+            # except for rax and rdi
+            if isinstance(reg, Reg) and reg in caller_saved_registers and reg in registers_for_coloring:
+                result.append(Instr('movq', [reg, Deref('rbp', -(self.stack_before + 8 * index))]))
+                index += 1
+        return result
+
+    def restore(self, registers: list[Reg]) -> list[Instr]:
+        self.stack_size = max(self.stack_size, self.stack_before + 8 * (len(registers) + 1))
+        result: list[Instr] = []
+        index = 1
+        # restore all variables from the stack
+        for reg in registers:
+            # except for rax and rdi
+            if isinstance(reg, Reg) and reg in caller_saved_registers and reg in registers_for_coloring:
+                result.append(Instr('movq', [Deref('rbp', -(self.stack_before + 8 * index)), reg]))
+                index += 1
+        return result
+
     def patch_instr(self, i: instr) -> list[instr]:
         match i:
             case Instr('cmpq', [arg, Immediate(n)]):
@@ -911,6 +949,8 @@ class Compiler:
                     Instr('movq', [Deref(reg, offset), Reg('rax')]),
                     Instr(op, [Reg('rax'), Deref(reg2, offset2)]),
                 ]
+            case Callq(name, n):
+                return self.save(caller_saved_registers) + [i] + self.restore(caller_saved_registers)
             case _:
                 return [i]
 
@@ -950,9 +990,20 @@ class Compiler:
             Callq('initialize', 0),
             Instr('movq', [x86_ast.Global('rootstack_begin'), Reg('r15')]),
         ]
+        for i in range(self.root_stack_size):
+            prelude.append(Instr('movq', [Immediate(0), Deref('r15', 8 * i)]))
+        if self.root_stack_size > 0:
+            prelude += [
+                Instr('addq', [Immediate(self.root_stack_size * 8), Reg('r15')])
+            ]
 
         p.body['main'] = prelude + [Jump('start')]
         conclusion = [Instr('popq', [Reg('rbp')]), Instr('retq', [])]
+
+        if self.root_stack_size > 0:
+            conclusion.insert(
+                0, Instr('subq', [Immediate(self.root_stack_size * 8), Reg('r15')])
+            )
 
         if adjust_stack_size > 0:
             conclusion.insert(
