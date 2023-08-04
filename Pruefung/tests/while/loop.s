@@ -1,59 +1,59 @@
 	.align 16
 block_196:
-    movq %rsi, %rdi
-    movq %r10, -3456(%rbp)
-    movq %rsi, -3464(%rbp)
+    movq %rcx, %rdi
+    movq %r9, -3440(%rbp)
+    movq %rdx, -3448(%rbp)
+    movq %rcx, -3456(%rbp)
+    movq %r10, -3464(%rbp)
     movq %r8, -3472(%rbp)
-    movq %rcx, -3480(%rbp)
-    movq %rdx, -3488(%rbp)
-    movq %r9, -3496(%rbp)
+    movq %rsi, -3480(%rbp)
     callq print_int
-    movq -3456(%rbp), %r10
-    movq -3464(%rbp), %rsi
+    movq -3440(%rbp), %r9
+    movq -3448(%rbp), %rdx
+    movq -3456(%rbp), %rcx
+    movq -3464(%rbp), %r10
     movq -3472(%rbp), %r8
-    movq -3480(%rbp), %rcx
-    movq -3488(%rbp), %rdx
-    movq -3496(%rbp), %r9
+    movq -3480(%rbp), %rsi
     movq $0, %rax
     jmp conclusion
 
 	.align 16
 block_198:
-    movq %r8, %rsi
-    addq %rsi, %r8
-    addq $1, %rdx
+    movq %rdx, %rcx
+    addq %rcx, %rdx
+    addq $1, %rsi
     jmp loop_197
 
 	.align 16
 loop_197:
-    cmpq %rcx, %rdx
+    cmpq %r8, %rsi
     jl block_198
     jmp block_196
 
 	.align 16
 start:
+    movq $0, %rcx
+    movq $1, %rdx
     movq $0, %rsi
-    movq $1, %r8
-    movq $0, %rdx
-    movq %r10, -3456(%rbp)
-    movq %rsi, -3464(%rbp)
+    movq %r9, -3440(%rbp)
+    movq %rdx, -3448(%rbp)
+    movq %rcx, -3456(%rbp)
+    movq %r10, -3464(%rbp)
     movq %r8, -3472(%rbp)
-    movq %rcx, -3480(%rbp)
-    movq %rdx, -3488(%rbp)
-    movq %r9, -3496(%rbp)
+    movq %rsi, -3480(%rbp)
     callq read_int
-    movq -3456(%rbp), %r10
-    movq -3464(%rbp), %rsi
+    movq -3440(%rbp), %r9
+    movq -3448(%rbp), %rdx
+    movq -3456(%rbp), %rcx
+    movq -3464(%rbp), %r10
     movq -3472(%rbp), %r8
-    movq -3480(%rbp), %rcx
-    movq -3488(%rbp), %rdx
-    movq -3496(%rbp), %r9
-    movq %rax, %rcx
+    movq -3480(%rbp), %rsi
+    movq %rax, %r8
     jmp loop_197
 
 	.align 16
 conclusion:
-    addq $3536, %rsp
+    addq $3520, %rsp
     popq %rbp
     retq 
 
@@ -62,7 +62,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $3536, %rsp
+    subq $3520, %rsp
     movq $16384, %rdi
     movq $16384, %rsi
     callq initialize

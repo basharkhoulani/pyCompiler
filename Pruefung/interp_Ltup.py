@@ -35,7 +35,7 @@ class InterpLtup(InterpLwhile):
     match s:
       case Collect(size):
         return self.interp_stmts(cont, env)
-      case Assign([Subscript(tup, index)], value):
+      case Assign([Subscript(tup, index, Store())], value):
         tup = self.interp_exp(tup, env)
         index = self.interp_exp(index, env)
         tup[index] = self.interp_exp(value, env)

@@ -1,19 +1,19 @@
 	.align 16
 start:
     movq $0, %rdi
-    movq %r10, -88(%rbp)
-    movq %rsi, -96(%rbp)
-    movq %r8, -104(%rbp)
-    movq %rcx, -112(%rbp)
-    movq %rdx, -120(%rbp)
-    movq %r9, -128(%rbp)
+    movq %r9, -88(%rbp)
+    movq %rdx, -96(%rbp)
+    movq %rcx, -104(%rbp)
+    movq %r10, -112(%rbp)
+    movq %r8, -120(%rbp)
+    movq %rsi, -128(%rbp)
     callq print_int
-    movq -88(%rbp), %r10
-    movq -96(%rbp), %rsi
-    movq -104(%rbp), %r8
-    movq -112(%rbp), %rcx
-    movq -120(%rbp), %rdx
-    movq -128(%rbp), %r9
+    movq -88(%rbp), %r9
+    movq -96(%rbp), %rdx
+    movq -104(%rbp), %rcx
+    movq -112(%rbp), %r10
+    movq -120(%rbp), %r8
+    movq -128(%rbp), %rsi
     movq $0, %rax
     jmp conclusion
 

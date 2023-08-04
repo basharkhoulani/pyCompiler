@@ -6,36 +6,36 @@ start:
     movq %rdx, %rcx
     addq %rsi, %rcx
     movq %rcx, %rdi
-    movq %r10, -1960(%rbp)
-    movq %rsi, -1968(%rbp)
-    movq %r8, -1976(%rbp)
-    movq %rcx, -1984(%rbp)
-    movq %rdx, -1992(%rbp)
-    movq %r9, -2000(%rbp)
+    movq %r9, -1960(%rbp)
+    movq %rdx, -1968(%rbp)
+    movq %rcx, -1976(%rbp)
+    movq %r10, -1984(%rbp)
+    movq %r8, -1992(%rbp)
+    movq %rsi, -2000(%rbp)
     callq print_int
-    movq -1960(%rbp), %r10
-    movq -1968(%rbp), %rsi
-    movq -1976(%rbp), %r8
-    movq -1984(%rbp), %rcx
-    movq -1992(%rbp), %rdx
-    movq -2000(%rbp), %r9
+    movq -1960(%rbp), %r9
+    movq -1968(%rbp), %rdx
+    movq -1976(%rbp), %rcx
+    movq -1984(%rbp), %r10
+    movq -1992(%rbp), %r8
+    movq -2000(%rbp), %rsi
     movq %rdx, %rcx
     addq %rsi, %rcx
     addq %r8, %rcx
     movq %rcx, %rdi
-    movq %r10, -1960(%rbp)
-    movq %rsi, -1968(%rbp)
-    movq %r8, -1976(%rbp)
-    movq %rcx, -1984(%rbp)
-    movq %rdx, -1992(%rbp)
-    movq %r9, -2000(%rbp)
+    movq %r9, -1960(%rbp)
+    movq %rdx, -1968(%rbp)
+    movq %rcx, -1976(%rbp)
+    movq %r10, -1984(%rbp)
+    movq %r8, -1992(%rbp)
+    movq %rsi, -2000(%rbp)
     callq print_int
-    movq -1960(%rbp), %r10
-    movq -1968(%rbp), %rsi
-    movq -1976(%rbp), %r8
-    movq -1984(%rbp), %rcx
-    movq -1992(%rbp), %rdx
-    movq -2000(%rbp), %r9
+    movq -1960(%rbp), %r9
+    movq -1968(%rbp), %rdx
+    movq -1976(%rbp), %rcx
+    movq -1984(%rbp), %r10
+    movq -1992(%rbp), %r8
+    movq -2000(%rbp), %rsi
     movq $0, %rax
     jmp conclusion
 

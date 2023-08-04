@@ -32,12 +32,12 @@ interp_dict = {
     'prelude_and_conclusion': interp_x86,
 }
 
-enable_tracing()
+# enable_tracing()
 
-# run_tests('var', compiler, 'tup', typecheck_dict, interp_dict)
-# run_tests('regalloc', compiler, 'tup', typecheck_dict, interp_dict)
-# run_tests('lif', compiler, 'tup', typecheck_dict, interp_dict)
-# run_tests('while', compiler, 'tup', typecheck_dict, interp_dict)
+run_tests('var', compiler, 'tup', typecheck_dict, interp_dict)
+run_tests('regalloc', compiler, 'tup', typecheck_dict, interp_dict)
+run_tests('lif', compiler, 'tup', typecheck_dict, interp_dict)
+run_tests('while', compiler, 'tup', typecheck_dict, interp_dict)
 
 run_tests('tup', compiler, 'tup', typecheck_dict, {
    'shrink': interp_Ltup,

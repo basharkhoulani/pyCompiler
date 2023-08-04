@@ -8,7 +8,9 @@ input_file = "test.py"
 
 # prog = open(input_file).read()
 prog = '''
-t = (1, 2, 3)
+x = 2
+y = 2
+print(x == y)
 '''
 
 print('PARSE =====')

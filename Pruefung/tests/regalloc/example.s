@@ -1,49 +1,49 @@
 	.align 16
 start:
-    movq %r10, -1128(%rbp)
-    movq %rsi, -1136(%rbp)
-    movq %r8, -1144(%rbp)
-    movq %rcx, -1152(%rbp)
-    movq %rdx, -1160(%rbp)
-    movq %r9, -1168(%rbp)
+    movq %r9, -1128(%rbp)
+    movq %rdx, -1136(%rbp)
+    movq %rcx, -1144(%rbp)
+    movq %r10, -1152(%rbp)
+    movq %r8, -1160(%rbp)
+    movq %rsi, -1168(%rbp)
     callq read_int
-    movq -1128(%rbp), %r10
-    movq -1136(%rbp), %rsi
-    movq -1144(%rbp), %r8
-    movq -1152(%rbp), %rcx
-    movq -1160(%rbp), %rdx
-    movq -1168(%rbp), %r9
+    movq -1128(%rbp), %r9
+    movq -1136(%rbp), %rdx
+    movq -1144(%rbp), %rcx
+    movq -1152(%rbp), %r10
+    movq -1160(%rbp), %r8
+    movq -1168(%rbp), %rsi
     movq %rax, %rcx
-    movq %r10, -1128(%rbp)
-    movq %rsi, -1136(%rbp)
-    movq %r8, -1144(%rbp)
-    movq %rcx, -1152(%rbp)
-    movq %rdx, -1160(%rbp)
-    movq %r9, -1168(%rbp)
+    movq %r9, -1128(%rbp)
+    movq %rdx, -1136(%rbp)
+    movq %rcx, -1144(%rbp)
+    movq %r10, -1152(%rbp)
+    movq %r8, -1160(%rbp)
+    movq %rsi, -1168(%rbp)
     callq read_int
-    movq -1128(%rbp), %r10
-    movq -1136(%rbp), %rsi
-    movq -1144(%rbp), %r8
-    movq -1152(%rbp), %rcx
-    movq -1160(%rbp), %rdx
-    movq -1168(%rbp), %r9
+    movq -1128(%rbp), %r9
+    movq -1136(%rbp), %rdx
+    movq -1144(%rbp), %rcx
+    movq -1152(%rbp), %r10
+    movq -1160(%rbp), %r8
+    movq -1168(%rbp), %rsi
     movq %rax, %rdx
     addq %rdx, %rcx
     addq $42, %rcx
     movq %rcx, %rdi
-    movq %r10, -1128(%rbp)
-    movq %rsi, -1136(%rbp)
-    movq %r8, -1144(%rbp)
-    movq %rcx, -1152(%rbp)
-    movq %rdx, -1160(%rbp)
-    movq %r9, -1168(%rbp)
+    movq %r9, -1128(%rbp)
+    movq %rdx, -1136(%rbp)
+    movq %rcx, -1144(%rbp)
+    movq %r10, -1152(%rbp)
+    movq %r8, -1160(%rbp)
+    movq %rsi, -1168(%rbp)
     callq print_int
-    movq -1128(%rbp), %r10
-    movq -1136(%rbp), %rsi
-    movq -1144(%rbp), %r8
-    movq -1152(%rbp), %rcx
-    movq -1160(%rbp), %rdx
-    movq -1168(%rbp), %r9
+    movq -1128(%rbp), %r9
+    movq -1136(%rbp), %rdx
+    movq -1144(%rbp), %rcx
+    movq -1152(%rbp), %r10
+    movq -1160(%rbp), %r8
+    movq -1168(%rbp), %rsi
     movq $0, %rax
     jmp conclusion
 

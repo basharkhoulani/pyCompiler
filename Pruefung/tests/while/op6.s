@@ -1,19 +1,19 @@
 	.align 16
 block_205:
     movq $0, %rdi
-    movq %r10, -3696(%rbp)
-    movq %rsi, -3704(%rbp)
+    movq %r9, -3680(%rbp)
+    movq %rdx, -3688(%rbp)
+    movq %rcx, -3696(%rbp)
+    movq %r10, -3704(%rbp)
     movq %r8, -3712(%rbp)
-    movq %rcx, -3720(%rbp)
-    movq %rdx, -3728(%rbp)
-    movq %r9, -3736(%rbp)
+    movq %rsi, -3720(%rbp)
     callq print_int
-    movq -3696(%rbp), %r10
-    movq -3704(%rbp), %rsi
+    movq -3680(%rbp), %r9
+    movq -3688(%rbp), %rdx
+    movq -3696(%rbp), %rcx
+    movq -3704(%rbp), %r10
     movq -3712(%rbp), %r8
-    movq -3720(%rbp), %rcx
-    movq -3728(%rbp), %rdx
-    movq -3736(%rbp), %r9
+    movq -3720(%rbp), %rsi
     movq $0, %rax
     jmp conclusion
 
@@ -104,7 +104,7 @@ start:
 
 	.align 16
 conclusion:
-    addq $3776, %rsp
+    addq $3760, %rsp
     popq %rbp
     retq 
 
@@ -113,7 +113,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $3776, %rsp
+    subq $3760, %rsp
     movq $16384, %rdi
     movq $16384, %rsi
     callq initialize

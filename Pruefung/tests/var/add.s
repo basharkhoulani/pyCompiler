@@ -3,19 +3,19 @@ start:
     movq $40, %rcx
     addq $2, %rcx
     movq %rcx, %rdi
-    movq %r10, -648(%rbp)
-    movq %rsi, -656(%rbp)
-    movq %r8, -664(%rbp)
-    movq %rcx, -672(%rbp)
-    movq %rdx, -680(%rbp)
-    movq %r9, -688(%rbp)
+    movq %r9, -648(%rbp)
+    movq %rdx, -656(%rbp)
+    movq %rcx, -664(%rbp)
+    movq %r10, -672(%rbp)
+    movq %r8, -680(%rbp)
+    movq %rsi, -688(%rbp)
     callq print_int
-    movq -648(%rbp), %r10
-    movq -656(%rbp), %rsi
-    movq -664(%rbp), %r8
-    movq -672(%rbp), %rcx
-    movq -680(%rbp), %rdx
-    movq -688(%rbp), %r9
+    movq -648(%rbp), %r9
+    movq -656(%rbp), %rdx
+    movq -664(%rbp), %rcx
+    movq -672(%rbp), %r10
+    movq -680(%rbp), %r8
+    movq -688(%rbp), %rsi
     movq $0, %rax
     jmp conclusion
 

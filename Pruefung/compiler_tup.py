@@ -119,8 +119,8 @@ class Compiler:
                 return e
             case Call(Name('len'), [expr]):
                 return Call(Name('len'), [self.shrink_exp(expr)])
-            case Subscript(expr, Constant(index), Load()):
-                return Subscript(self.shrink_exp(expr), Constant(index), Load())
+            case Subscript(expr, Constant(index), ls):
+                return Subscript(self.shrink_exp(expr), Constant(index), ls)
             case Tuple(exprs, Load()):
                 return Tuple([self.shrink_exp(expr) for expr in exprs], Load())
             case Expr(expr):
@@ -201,7 +201,7 @@ class Compiler:
                 tup_assigns: list[stmt] = []
                 index = 0
                 for assignment in assignments:
-                    tup_assigns.append(Assign([Subscript(tup_name, Constant(index), Load())], assignment.targets[0]))
+                    tup_assigns.append(Assign([Subscript(tup_name, Constant(index), Store())], assignment.targets[0]))
                     index += 1
                     
                 result = Begin(assignments + [allocate, tup] + tup_assigns, tup_name)
@@ -220,8 +220,8 @@ class Compiler:
                 return Expr(self.expose_allocation_expr(expr))
             case Assign([Name(var)], expr):
                 return Assign([Name(var)], self.expose_allocation_expr(expr))
-            case Assign([Subscript(expr, Constant(index), ls)], expr2):
-                return Assign([Subscript(self.expose_allocation_expr(expr), Constant(index), ls)], 
+            case Assign([Subscript(expr, Constant(index), Store())], expr2):
+                return Assign([Subscript(self.expose_allocation_expr(expr), Constant(index), Store())], 
                               self.expose_allocation_expr(expr2))
             case If(test, thn, els):
                 return If(
@@ -334,16 +334,16 @@ class Compiler:
                     for nstmt in self.rco_stmt(stmt):
                         nstmts.append(nstmt)
                 return (Begin(nstmts, ex), [])
-            case Subscript(e1, e2, Load()):
+            case Subscript(e1, e2, ls):
                 atm1, tmp1 = self.rco_exp(e1, True)
                 atm2, tmp2 = self.rco_exp(e2, True)
                 if need_atomic:
                     fresh_tmp = get_fresh_tmp()
                     return (
                         Name(fresh_tmp),
-                        tmp1 + tmp2 + [(Name(fresh_tmp), Subscript(atm1, atm2, Load()))],
+                        tmp1 + tmp2 + [(Name(fresh_tmp), Subscript(atm1, atm2, ls))],
                     )
-                return (Subscript(atm1, atm2, Load()), tmp1 + tmp2)
+                return (Subscript(atm1, atm2, ls), tmp1 + tmp2)
             case Call(Name('len'), [e]):
                 atm1, tmp1 = self.rco_exp(e, True)
                 if need_atomic:
@@ -401,13 +401,13 @@ class Compiler:
                 return self.tmps_to_stmts(tmps) + [While(atm, rco_body, [])]
             case Collect(n):
                 return [s]
-            case Assign([Subscript(e1, e2, ls)], e3):
+            case Assign([Subscript(e1, e2, Store())], e3):
                 atm1, tmps1 = self.rco_exp(e1, True)
                 atm2, tmps2 = self.rco_exp(e2, True)
                 atm3, tmps3 = self.rco_exp(e3, True)
                 
                 result = self.tmps_to_stmts(tmps1 + tmps2 + tmps3)
-                return result + [Assign([Subscript(atm1, atm2, ls)], atm3)]
+                return result + [Assign([Subscript(atm1, atm2, Store())], atm3)]
             case _:
                 raise Exception('unhandled case in rco_stmt ' + repr(s))
 
@@ -670,7 +670,7 @@ class Compiler:
                     Instr('movq', [Immediate(tag), Deref('r11', 0)]),
                     Instr('movq', [Reg('r11'), self.select_arg(Name(var))]),
                 ]
-            case Assign([Subscript(atm1, Constant(n), ls)], Call(Name('len'), [atm2])):
+            case Assign([Subscript(atm1, Constant(n), Store())], Call(Name('len'), [atm2])):
                 bitMask = 0b1111110 # bit mask for vector length
                 return [
                     Instr('movq', [self.select_arg(atm2), Reg('r11')]),
@@ -680,19 +680,19 @@ class Compiler:
                     Instr('movq', [self.select_arg(atm1), Reg('r12')]),
                     Instr('movq', [Reg('r11'), Deref('r12', 8 * (n + 1))]),
                 ]
-            case Assign([Subscript(atm1, Constant(n1), ls)], Subscript(atm2, Constant(n2), ls2)):
+            case Assign([Subscript(atm1, Constant(n1), Store())], Subscript(atm2, Constant(n2), Load())):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
                 result.append(Instr('movq', [arg2, Reg('r11')]))
                 result.append(Instr('movq', [Deref('r11', 8 * (n2+1)), Reg('r12')]))
                 result.append(Instr('movq', [arg1, Reg('r11')]))
                 result.append(Instr('movq', [Reg('r12'), Deref('r11', 8 * (n1+1))]))
-            case Assign(atm1, Subscript(atm2, Constant(n), ls)):
+            case Assign(atm1, Subscript(atm2, Constant(n), Load())):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
                 result.append(Instr('movq', [arg2, Reg('r11')]))
                 result.append(Instr('movq', [Deref('r11', 8 * (n+1)), arg1]))
-            case Assign([Subscript(atm1, Constant(n), ls)], atm2):
+            case Assign([Subscript(atm1, Constant(n), Store())], atm2):
                 arg1 = self.select_arg(atm1)
                 arg2 = self.select_arg(atm2)
                 result.append(Instr('movq', [arg1, Reg('r11')]))
@@ -730,10 +730,6 @@ class Compiler:
                 ]
             case Expr(Call(Name('input_int'), [])):
                 return [Callq(label_name('read_int'), 0)]
-            case Expr(Call(Name('len'), [atm])):
-                return [
-                    Instr('len', []),
-                ]
             case Collect(n):
                 return [
                     Instr('movq', [Reg('r15'), Reg('rdi')]),
