@@ -34,19 +34,19 @@ start:
     movq -1296(%rbp), %rax
     addq %rax, -1456(%rbp)
     movq -1456(%rbp), %rdi
-    movq %rsi, -1464(%rbp)
-    movq %rdx, -1472(%rbp)
-    movq %r10, -1480(%rbp)
-    movq %r9, -1488(%rbp)
-    movq %r8, -1496(%rbp)
-    movq %rcx, -1504(%rbp)
+    movq %r10, -1464(%rbp)
+    movq %rsi, -1472(%rbp)
+    movq %r8, -1480(%rbp)
+    movq %rcx, -1488(%rbp)
+    movq %rdx, -1496(%rbp)
+    movq %r9, -1504(%rbp)
     callq print_int
-    movq -1464(%rbp), %rsi
-    movq -1472(%rbp), %rdx
-    movq -1480(%rbp), %r10
-    movq -1488(%rbp), %r9
-    movq -1496(%rbp), %r8
-    movq -1504(%rbp), %rcx
+    movq -1464(%rbp), %r10
+    movq -1472(%rbp), %rsi
+    movq -1480(%rbp), %r8
+    movq -1488(%rbp), %rcx
+    movq -1496(%rbp), %rdx
+    movq -1504(%rbp), %r9
     addq -1288(%rbp), %rcx
     addq -1296(%rbp), %rcx
     addq -1304(%rbp), %rcx
@@ -73,19 +73,19 @@ start:
     addq %r8, %rcx
     addq %r9, %rcx
     movq %rcx, %rdi
-    movq %rsi, -1464(%rbp)
-    movq %rdx, -1472(%rbp)
-    movq %r10, -1480(%rbp)
-    movq %r9, -1488(%rbp)
-    movq %r8, -1496(%rbp)
-    movq %rcx, -1504(%rbp)
+    movq %r10, -1464(%rbp)
+    movq %rsi, -1472(%rbp)
+    movq %r8, -1480(%rbp)
+    movq %rcx, -1488(%rbp)
+    movq %rdx, -1496(%rbp)
+    movq %r9, -1504(%rbp)
     callq print_int
-    movq -1464(%rbp), %rsi
-    movq -1472(%rbp), %rdx
-    movq -1480(%rbp), %r10
-    movq -1488(%rbp), %r9
-    movq -1496(%rbp), %r8
-    movq -1504(%rbp), %rcx
+    movq -1464(%rbp), %r10
+    movq -1472(%rbp), %rsi
+    movq -1480(%rbp), %r8
+    movq -1488(%rbp), %rcx
+    movq -1496(%rbp), %rdx
+    movq -1504(%rbp), %r9
     movq $0, %rax
     jmp conclusion
 

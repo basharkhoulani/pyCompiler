@@ -1164,11 +1164,13 @@ def test_pass(passname, interp_dict, program_root, ast,
         sys.stdin = stdin
         sys.stdout = stdout
         result = os.system('diff' + ' -b ' + output_file + ' ' + program_root + '.golden')
+                   
         if result == 0:
             trace('compiler ' + compiler_name + ' success on pass ' + passname \
                   + ' on test\n' + program_root + '\n')
             return 1
         else:
+            print(' * ' + os.path.splitext(os.path.basename(input_file))[0] + ' failed on pass ' + passname, file=sys.stderr)
             print('compiler ' + compiler_name + ' failed pass ' + passname \
                   + ' on test\n' + program_root + '\n')
             return 0
@@ -1584,6 +1586,9 @@ def run_tests(lang, compiler, compiler_name, type_check_dict, interp_dict):
         successful_passes += succ_passes
         total_passes += tot_passes
         successful_tests += succ_test
+        
+        if succ_passes < tot_passes:
+           print(' * ' + os.path.splitext(os.path.basename(test))[0])
         total_tests += 1
 
     # Report the pass/fails

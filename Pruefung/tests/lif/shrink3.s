@@ -6,37 +6,37 @@ block_88:
 	.align 16
 block_89:
     movq $0, %rdi
-    movq %rsi, -2040(%rbp)
-    movq %rdx, -2048(%rbp)
-    movq %r10, -2056(%rbp)
-    movq %r9, -2064(%rbp)
-    movq %r8, -2072(%rbp)
-    movq %rcx, -2080(%rbp)
+    movq %r10, -2040(%rbp)
+    movq %rsi, -2048(%rbp)
+    movq %r8, -2056(%rbp)
+    movq %rcx, -2064(%rbp)
+    movq %rdx, -2072(%rbp)
+    movq %r9, -2080(%rbp)
     callq print_int
-    movq -2040(%rbp), %rsi
-    movq -2048(%rbp), %rdx
-    movq -2056(%rbp), %r10
-    movq -2064(%rbp), %r9
-    movq -2072(%rbp), %r8
-    movq -2080(%rbp), %rcx
+    movq -2040(%rbp), %r10
+    movq -2048(%rbp), %rsi
+    movq -2056(%rbp), %r8
+    movq -2064(%rbp), %rcx
+    movq -2072(%rbp), %rdx
+    movq -2080(%rbp), %r9
     jmp block_88
 
 	.align 16
 block_90:
     movq $1, %rdi
-    movq %rsi, -2040(%rbp)
-    movq %rdx, -2048(%rbp)
-    movq %r10, -2056(%rbp)
-    movq %r9, -2064(%rbp)
-    movq %r8, -2072(%rbp)
-    movq %rcx, -2080(%rbp)
+    movq %r10, -2040(%rbp)
+    movq %rsi, -2048(%rbp)
+    movq %r8, -2056(%rbp)
+    movq %rcx, -2064(%rbp)
+    movq %rdx, -2072(%rbp)
+    movq %r9, -2080(%rbp)
     callq print_int
-    movq -2040(%rbp), %rsi
-    movq -2048(%rbp), %rdx
-    movq -2056(%rbp), %r10
-    movq -2064(%rbp), %r9
-    movq -2072(%rbp), %r8
-    movq -2080(%rbp), %rcx
+    movq -2040(%rbp), %r10
+    movq -2048(%rbp), %rsi
+    movq -2056(%rbp), %r8
+    movq -2064(%rbp), %rcx
+    movq -2072(%rbp), %rdx
+    movq -2080(%rbp), %r9
     jmp block_88
 
 	.align 16

@@ -18,9 +18,7 @@ registers_for_coloring = [
     Reg('rsi'),
     Reg('r8'),
     Reg('r9'),
-    Reg('r10'),
-    Reg('r11'),
-    Reg('r15'),
+    Reg('r10')
 ]
 
 
@@ -70,16 +68,6 @@ caller_saved_registers: set[location] = set(
 callee_saved_registers: set[location] = set(
     [Reg('rsp'), Reg('rbp'), Reg('rbx'), Reg('r12'), Reg('r13'), Reg('r14'), Reg('r15')]
 )
-
-registers_for_coloring = [
-    Reg('rcx'),
-    Reg('rdx'),
-    Reg('rsi'),
-    Reg('r8'),
-    Reg('r9'),
-    Reg('r10'),
-]
-
 
 def get_loc_from_arg(a: arg) -> set[location]:
     match a:
@@ -200,7 +188,7 @@ class Compiler:
                     assignments.append(Assign([Name(generate_name('init'))], nexpr))
                     
                 # 2: Check for space
-                test = Expr(Compare(BinOp(GlobalValue('free_ptr'), Add(), Constant(len(nexprs) * 8 + 8)), [Lt()], [GlobalValue('fromspace_end')]))
+                test = Compare(BinOp(GlobalValue('free_ptr'), Add(), Constant(len(nexprs) * 8 + 8)), [Lt()], [GlobalValue('fromspace_end')])
                 thn = []
                 els = [Collect(len(nexprs) * 8 + 8)]
                 allocate = self.shrink_stmt(If(test, thn, els))
@@ -226,8 +214,8 @@ class Compiler:
 
     def expose_allocation_stmt(self, s: stmt) -> stmt:
         match s:
-            case Expr(Callq(Name('print'), [expr])):
-                return Expr(Callq(Name('print'), [self.expose_allocation_expr(expr)]))
+            case Expr(Call(Name('print'), [expr])):
+                return Expr(Call(Name('print'), [self.expose_allocation_expr(expr)]))
             case Expr(expr):
                 return Expr(self.expose_allocation_expr(expr))
             case Assign([Name(var)], expr):
@@ -446,9 +434,9 @@ class Compiler:
             case Call(func, args):
                 return [Expr(e)] + cont
             case Begin(body, result):
-                new_body = self.epxlicate_effect(result, cont, basic_blocks) + [cont]
+                new_body = self.explicate_effect(result, cont, basic_blocks) + [cont]
                 for s in reversed(body):
-                    new_body = self.epxlicate_stmt(s, new_body, basic_blocks)
+                    new_body = self.explicate_stmt(s, new_body, basic_blocks)
                 return new_body
             case _:
                 return cont

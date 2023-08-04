@@ -1,19 +1,19 @@
 	.align 16
 block_173:
     movq %rcx, %rdi
-    movq %rsi, -2968(%rbp)
-    movq %rdx, -2976(%rbp)
-    movq %r10, -2984(%rbp)
-    movq %r9, -2992(%rbp)
-    movq %r8, -3000(%rbp)
-    movq %rcx, -3008(%rbp)
+    movq %r10, -2976(%rbp)
+    movq %rsi, -2984(%rbp)
+    movq %r8, -2992(%rbp)
+    movq %rcx, -3000(%rbp)
+    movq %rdx, -3008(%rbp)
+    movq %r9, -3016(%rbp)
     callq print_int
-    movq -2968(%rbp), %rsi
-    movq -2976(%rbp), %rdx
-    movq -2984(%rbp), %r10
-    movq -2992(%rbp), %r9
-    movq -3000(%rbp), %r8
-    movq -3008(%rbp), %rcx
+    movq -2976(%rbp), %r10
+    movq -2984(%rbp), %rsi
+    movq -2992(%rbp), %r8
+    movq -3000(%rbp), %rcx
+    movq -3008(%rbp), %rdx
+    movq -3016(%rbp), %r9
     movq $0, %rax
     jmp conclusion
 
@@ -41,39 +41,39 @@ loop_174:
 
 	.align 16
 start:
-    movq %rsi, -2968(%rbp)
-    movq %rdx, -2976(%rbp)
-    movq %r10, -2984(%rbp)
-    movq %r9, -2992(%rbp)
-    movq %r8, -3000(%rbp)
-    movq %rcx, -3008(%rbp)
+    movq %r10, -2976(%rbp)
+    movq %rsi, -2984(%rbp)
+    movq %r8, -2992(%rbp)
+    movq %rcx, -3000(%rbp)
+    movq %rdx, -3008(%rbp)
+    movq %r9, -3016(%rbp)
     callq read_int
-    movq -2968(%rbp), %rsi
-    movq -2976(%rbp), %rdx
-    movq -2984(%rbp), %r10
-    movq -2992(%rbp), %r9
-    movq -3000(%rbp), %r8
-    movq -3008(%rbp), %rcx
+    movq -2976(%rbp), %r10
+    movq -2984(%rbp), %rsi
+    movq -2992(%rbp), %r8
+    movq -3000(%rbp), %rcx
+    movq -3008(%rbp), %rdx
+    movq -3016(%rbp), %r9
     movq %rax, %rcx
-    movq %rsi, -2968(%rbp)
-    movq %rdx, -2976(%rbp)
-    movq %r10, -2984(%rbp)
-    movq %r9, -2992(%rbp)
-    movq %r8, -3000(%rbp)
-    movq %rcx, -3008(%rbp)
+    movq %r10, -2976(%rbp)
+    movq %rsi, -2984(%rbp)
+    movq %r8, -2992(%rbp)
+    movq %rcx, -3000(%rbp)
+    movq %rdx, -3008(%rbp)
+    movq %r9, -3016(%rbp)
     callq read_int
-    movq -2968(%rbp), %rsi
-    movq -2976(%rbp), %rdx
-    movq -2984(%rbp), %r10
-    movq -2992(%rbp), %r9
-    movq -3000(%rbp), %r8
-    movq -3008(%rbp), %rcx
+    movq -2976(%rbp), %r10
+    movq -2984(%rbp), %rsi
+    movq -2992(%rbp), %r8
+    movq -3000(%rbp), %rcx
+    movq -3008(%rbp), %rdx
+    movq -3016(%rbp), %r9
     movq %rax, %rdx
     jmp loop_174
 
 	.align 16
 conclusion:
-    addq $3040, %rsp
+    addq $3056, %rsp
     popq %rbp
     retq 
 
@@ -82,7 +82,7 @@ conclusion:
 main:
     pushq %rbp
     movq %rsp, %rbp
-    subq $3040, %rsp
+    subq $3056, %rsp
     movq $16384, %rdi
     movq $16384, %rsi
     callq initialize

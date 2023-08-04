@@ -1,0 +1,99 @@
+
+# source program: example3
+
+    v1 = (42,)
+    v2 = (v1,)
+    print(v2[0][0])
+
+
+
+# type checking source program
+
+
+# shrink
+
+    v1 = (42,)
+    v2 = (v1,)
+    print(v2[0][0])
+
+
+compiler tup success on pass shrink on test
+/home/lonartie/compilerbau-gruppe-4/Pruefung/tests/tup/example3
+
+
+# expose_allocation
+
+    v1 = {
+      init_0 = 42
+      if       (free_ptr + 16) < fromspace_end
+:
+      else:
+        collect(16)
+      tup_1 = allocate(1,tuple[int])
+      tup_1[0] = init_0
+      produce tup_1}
+    v2 = {
+      init_2 = v1
+      if       (free_ptr + 16) < fromspace_end
+:
+      else:
+        collect(16)
+      tup_3 = allocate(1,tuple[tuple[int]])
+      tup_3[0] = init_2
+      produce tup_3}
+    print(v2[0][0])
+
+Traceback (most recent call last):
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/run_tests.py", line 42, in <module>
+    run_tests('tup', compiler, 'tup', typecheck_dict, {
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/utils.py", line 1584, in run_tests
+    run_one_test(test, lang, compiler, compiler_name,
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/utils.py", line 1557, in run_one_test
+    return compile_and_test(compiler, compiler_name, type_check_dict,
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/utils.py", line 1357, in compile_and_test
+    test_pass(passname, interp_dict, program_root, program,
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/utils.py", line 1163, in test_pass
+    interp_dict[passname](ast)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lvar.py", line 24, in interp
+    self.interp_stmts(body, {})
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lint.py", line 78, in interp_stmts
+    return self.interp_stmt(s, env, ss)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Ltup.py", line 44, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lwhile.py", line 15, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lif.py", line 65, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lvar.py", line 16, in interp_stmt
+    env[id] = self.interp_exp(value, env)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Ltup.py", line 32, in interp_exp
+    return super().interp_exp(e, env)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lif.py", line 51, in interp_exp
+    self.interp_stmts(ss, env)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lint.py", line 78, in interp_stmts
+    return self.interp_stmt(s, env, ss)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Ltup.py", line 44, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lwhile.py", line 15, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lif.py", line 65, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lvar.py", line 17, in interp_stmt
+    return self.interp_stmts(cont, env)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lint.py", line 78, in interp_stmts
+    return self.interp_stmt(s, env, ss)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Ltup.py", line 44, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lwhile.py", line 15, in interp_stmt
+    return super().interp_stmt(s, env, cont)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lif.py", line 59, in interp_stmt
+    match self.interp_exp(test, env):
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Ltup.py", line 32, in interp_exp
+    return super().interp_exp(e, env)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lif.py", line 54, in interp_exp
+    return super().interp_exp(e, env)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lvar.py", line 11, in interp_exp
+    return super().interp_exp(e, env)
+  File "/home/lonartie/compilerbau-gruppe-4/Pruefung/interp_Lint.py", line 55, in interp_exp
+    raise Exception('error in interp_exp, unexpected ' + repr(e))
+Exception: error in interp_exp, unexpected   Expr(Compare(BinOp(GlobalValue(name='free_ptr'), Add(), Constant(16)), [Lt()], [GlobalValue(name='fromspace_end')]))

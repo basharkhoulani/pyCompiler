@@ -9,19 +9,19 @@ start:
     movq %rdx, %rcx
     subq $2, %rcx
     movq %rcx, %rdi
-    movq %rsi, -168(%rbp)
-    movq %rdx, -176(%rbp)
-    movq %r10, -184(%rbp)
-    movq %r9, -192(%rbp)
-    movq %r8, -200(%rbp)
-    movq %rcx, -208(%rbp)
+    movq %r10, -168(%rbp)
+    movq %rsi, -176(%rbp)
+    movq %r8, -184(%rbp)
+    movq %rcx, -192(%rbp)
+    movq %rdx, -200(%rbp)
+    movq %r9, -208(%rbp)
     callq print_int
-    movq -168(%rbp), %rsi
-    movq -176(%rbp), %rdx
-    movq -184(%rbp), %r10
-    movq -192(%rbp), %r9
-    movq -200(%rbp), %r8
-    movq -208(%rbp), %rcx
+    movq -168(%rbp), %r10
+    movq -176(%rbp), %rsi
+    movq -184(%rbp), %r8
+    movq -192(%rbp), %rcx
+    movq -200(%rbp), %rdx
+    movq -208(%rbp), %r9
     movq $0, %rax
     jmp conclusion
 
