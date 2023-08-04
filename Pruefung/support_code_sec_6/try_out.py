@@ -5,9 +5,10 @@ from compiler_tup import Compiler
 compiler = Compiler()
 
 prog="""
-t1 = ((7,), 42)
-t2 = (t1,)
-print(t2[0][1])
+t1 = 3, 7
+t2 = t1
+t3 = 3, 7
+print(42 if (t1 is t2) and not (t1 is t3) else 0)
 """
 
 ast = parse(prog)
