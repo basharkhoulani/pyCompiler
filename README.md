@@ -1,2 +1,2 @@
-# Compilerbau Gruppe 4
+# Labor Compilerbau
 
